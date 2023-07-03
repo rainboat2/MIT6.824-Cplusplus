@@ -1,0 +1,9 @@
+.vscode
+*.dSYM
+*.o
+*.so
+*/logs/*
+MapReduce/src/gen-cpp
+MapReduce/data/mr*
+*/bin/*
+*.DS_Store
