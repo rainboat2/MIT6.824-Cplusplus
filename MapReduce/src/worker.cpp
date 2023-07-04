@@ -4,6 +4,7 @@
 #include <fmt/core.h>
 #include <fstream>
 #include <glog/logging.h>
+#include <gflags/gflags.h>
 #include <iostream>
 #include <string>
 #include <thread>
@@ -28,9 +29,8 @@ using std::string;
 using std::unordered_map;
 using std::vector;
 
-double exit_possibility = 0;
-double delay_possibility = 0;
-
+DEFINE_double(exit_possibility, 0, "exit possibility");
+DEFINE_double(delay_possibility, 0, "delay possibility");
 
 class Worker {
 public:
@@ -100,12 +100,12 @@ private:
         std::uniform_int_distribution<> distrib(1, 10000);
         double r1 = distrib(gen) / 10000.0;
         double r2 = distrib(gen) / 10000.0;
-        if (r1 < exit_possibility) {
+        if (r1 < FLAGS_exit_possibility) {
             LOG(INFO) << fmt::format("Worker {} exited due to a fault.", id_);
             exit(0);
         }
 
-        if (r2 < delay_possibility) {
+        if (r2 < FLAGS_delay_possibility) {
             LOG(INFO) << fmt::format("Worker {} delay due to a fault.", id_);
             std::this_thread::sleep_for(TIME_OUT);
         }
@@ -231,37 +231,13 @@ std::pair<MapFunc, ReduceFunc> loadFunc()
     return { mapf, reducef };
 }
 
-/*
- * There are some problems using gflags on MacOS, so I had to
- * parse the command line arguments myself
- *
- * @see https://github.com/gflags/gflags/issues/330
- */
-string findFlag(int argc, char** argv, string prefix)
-{
-    for (int i = 1; i < argc; i++) {
-        int cmp = strncmp(argv[i], prefix.c_str(), prefix.size());
-        if (cmp == 0)
-            return string(argv[i] + prefix.size());
-    }
-    return "";
-}
-
 int main(int argc, char** argv)
 {
+    gflags::ParseCommandLineFlags(&argc, &argv, true);
     google::InitGoogleLogging(argv[0]);
-    FLAGS_log_dir = findFlag(argc, argv, "--log_dir=");
+
     LOG(INFO) << "Set log_dir: " << FLAGS_log_dir;
-
-    string exit_p = findFlag(argc, argv, "--exit_possibility="); 
-    if (exit_p != "")
-        exit_possibility = std::atof(exit_p.c_str());
-
-    string delay_p = findFlag(argc, argv, "--delay_possibility=");
-    if (delay_p != "")
-        delay_possibility = std::atof(delay_p.c_str());
-    
-    LOG(INFO) << fmt::format("exit_possibility: {}, delay_possibility: {}", exit_possibility, delay_possibility);
+    LOG(INFO) << fmt::format("exit_possibility: {}, delay_possibility: {}", FLAGS_exit_possibility, FLAGS_delay_possibility);
 
     std::shared_ptr<TTransport> socket(new TSocket("localhost", 8888));
     std::shared_ptr<TTransport> transport(new TBufferedTransport(socket));

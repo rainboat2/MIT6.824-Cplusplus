@@ -1,8 +1,9 @@
 CC          = g++
-CPPFLAGS    = -std=c++14 -g -Wall -fsanitize=address
+# CPPFLAGS    = -std=c++14 -g -Wall -fsanitize=address
+CPPFLAGS    = -std=c++14 -O2 -Wall
 SHAREDFLAGS = -fpic -shared -Wno-return-type-c-linkage
 LDFLAGS     = -L $(SRC)/gen-cpp
-LIBS        = -lthrift -lmaster_rpc -lglog -lfmt
+LIBS        = -lthrift -lmaster_rpc -lgflags -lglog -lfmt
 INC         =
 AR          = ar -rcs
 

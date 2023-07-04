@@ -2,6 +2,7 @@
 *.dSYM
 *.o
 *.so
+*.a
 */logs/*
 MapReduce/src/gen-cpp
 MapReduce/data/mr*

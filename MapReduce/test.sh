@@ -1,8 +1,8 @@
 #!/bin/bash
 
 workerNum=3
-ep=(0 0 0.8)
-dp=(0 0.5 0)
+ep=(-1 0 0 0.8)
+dp=(-1 0 0.5 0)
 
 workDir=$(cd $(dirname $0); pwd)
 master=$workDir/bin/master
@@ -26,3 +26,4 @@ do
 done
 
 
+echo "The calculation process is shown in the logs folder and the results in data/mr-out-*"
