@@ -1,33 +1,46 @@
-CC          = g++
-# CPPFLAGS    = -std=c++14 -g -Wall -fsanitize=address
-CPPFLAGS    = -std=c++14 -O2 -Wall
-SHAREDFLAGS = -fpic -shared -Wno-return-type-c-linkage
-LDFLAGS     = -L $(SRC)/gen-cpp
-LIBS        = -lthrift -lraft_rpc -lgflags -lglog -lfmt
-INC         =
-AR          = ar -rcs
+ROOTDIR     = ..
+-include ../Global.mk
+RPC         = raft-rpc
 
-SRC         = src
-BIN         = bin
+RAFT_SOURCES = raft.cpp 
 
-RPC_LIB = $(SRC)/gen-cpp/libraft_rpc.a
+RAFT_OBJECTS = $(addprefix $(OBJECTS_DIR)/, $(RAFT_SOURCES:cpp=o))
 
-all: $(BIN)/raft
+OBJECTS = $(RAFT_OBJECTS)
 
-$(BIN)/%: $(SRC)/%.cpp $(RPC_LIB)
-	$(CC) $(CPPFLAGS) $(LIBS) $(LDFLAGS) $(INC) -o $@ $<
+RAFT_LIB = $(LIBDIR)/libraft.a
 
-$(RPC_LIB): $(SRC)/gen-cpp
-	cd $< ; \
-	$(CC) $(CPPFLAGS) $(INC) -c RaftRPC.cpp -o RaftRPC.o; \
-	$(CC) $(CPPFLAGS) $(INC) -c raft_types.cpp -o raft_types.o;\
-	$(AR) libraft_rpc.a  RaftRPC.o raft_types.o; \
+all: $(RAFT_LIB) $(BIN)/raft_main
 
-$(SRC)/gen-cpp: $(SRC)/raft.thrift
+$(BIN)/raft_main: raft_main.cpp $(RAFT_LIB)
+	$(CC) $(CPPFLAGS) $(LIBS) $(LDFLAGS) -lraft $(INC) -o $@ $<
+
+$(RAFT_LIB): $(RPC) $(OBJECTS)
+	$(AR) $@ $(RAFT_OBJECTS) $(RPC)/RaftRPC.o $(RPC)/raft_types.o
+
+$(RPC): raft.thrift
 	rm -rf $@
 	thrift -r --gen cpp $<
-	mv gen-cpp $(SRC)
+	mv gen-cpp $(RPC)
+	$(CC) $(CPPFLAGS) $(INC) -c $(RPC)/RaftRPC.cpp -o $(RPC)/RaftRPC.o
+	$(CC) $(CPPFLAGS) $(INC) -c $(RPC)/raft_types.cpp -o $(RPC)/raft_types.o
+	ln -f $(RPC)/raft_types.h $(ROOTDIR)/include/raft/rpc/raft_types.h
+	ln -f $(RPC)/RaftRPC.h $(ROOTDIR)/include/raft/rpc/RaftRPC.h
+
+# generate object file
+-include $(OBJECTS:.o=.d)
+	
+$(OBJECTS_DIR)/%.d: %.cpp
+	@set -e; \
+	mkdir -p $(OBJECTS_DIR); \
+	rm -f $@; \
+	$(CC) $(CPPFLAGS) $(INC) -MM -MT $(@:.d=.o) $< > $@.$$$$; \
+	sed 's,\($*\)\.o[ :]*,\1.o $@ : ,g' < $@.$$$$ > $@; \
+	rm -f $@.$$$$
+
+$(OBJECTS): %.o:
+	$(CC) $(CPPFLAGS) $(INC) -c $< -o $@
 
 .PHONY: clean all
 clean:
-	rm -rf $(SRC)/gen-cpp $(BIN)/* 
+	rm -rf raft-rpc $(RAFT_LIB) $(RPC_LIB) $(OBJECTS) $(OBJECTS:.o=.d)

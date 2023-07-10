@@ -4,7 +4,12 @@
 *.so
 *.a
 */logs/*
-MapReduce/src/gen-cpp
+*/raft-rpc
+*/src/gen-cpp
 MapReduce/data/mr*
 */bin/*
 *.DS_Store
+objs
+lib
+bin
+logs

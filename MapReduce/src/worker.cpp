@@ -3,8 +3,6 @@
 #include <dlfcn.h>
 #include <fmt/core.h>
 #include <fstream>
-#include <glog/logging.h>
-#include <gflags/gflags.h>
 #include <iostream>
 #include <string>
 #include <thread>
@@ -12,6 +10,9 @@
 #include <vector>
 #include <cstdlib>
 #include <random>
+
+#include <glog/logging.h>
+#include <gflags/gflags.h>
 
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <thrift/transport/TSocket.h>
