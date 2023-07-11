@@ -7,6 +7,8 @@
 
 #include "RaftProcess.hpp"
 
+#include <raft/ClientManager.h>
+
 using namespace apache::thrift;
 using namespace apache::thrift::protocol;
 using namespace apache::thrift::transport;
@@ -39,24 +41,18 @@ protected:
         for (int i = 0; i < num; i++) {
             rafts_[i].start();
         }
-
-        std::this_thread::sleep_for(std::chrono::microseconds(1000));
-
-        for (int i = 0; i < num; i++) {
-            std::shared_ptr<TTransport> socket(new TSocket("localhost", ports_[i]));
-            std::shared_ptr<TTransport> transport(new TBufferedTransport(socket));
-            std::shared_ptr<TProtocol> protocol(new TBinaryProtocol(transport));
-            clients_.push_back(RaftRPCClient(protocol));
-            transports.push_back(transport);
-            transport->open();
-        }
     }
 
     bool cheackOneLeader() {
         int leader_cnt = 0;
-        for (int i = 0; i < clients_.size(); i++) {
+        for (int i = 0; i < rafts_.size(); i++) {
             RaftState st;
-            clients_[i].getState(st);
+            RaftAddr addr;
+            addr.ip = "127.0.0.1";
+            addr.port = ports_[i];
+            auto* client = cm_.getClient(i, addr);
+
+            client->getState(st);
             if (st.state == ServerState::LEADER) {
                 leader_cnt++;
             }
@@ -72,7 +68,7 @@ protected:
 
 protected:
     std::vector<RaftProcess> rafts_;
-    std::vector<RaftRPCClient> clients_;
+    ClientManager cm_;
     std::vector<std::shared_ptr<TTransport>> transports;
     std::vector<int> ports_;
 };
@@ -81,10 +77,16 @@ protected:
 TEST_F(RaftTest, TestInitialElection2A) {
     const int RAFT_NUM = 3;
     initRafts(RAFT_NUM);
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+
+    RaftAddr addr;
+    addr.ip = "127.0.0.1";
 
     for (int i = 0; i < RAFT_NUM; i++) {
         RaftState st;
-        clients_[i].getState(st);
+        addr.port = ports_[i];
+        auto client = cm_.getClient(i, addr);
+        client->getState(st);
         EXPECT_EQ(st.peers.size(), RAFT_NUM - 1);
     }
 
