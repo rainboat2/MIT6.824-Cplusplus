@@ -5,11 +5,21 @@ import re
 curDir = os.getcwd()
 logDir = f'{curDir}/../logs'
 
+def log_list(path):
+    rs = []
+    for file in os.listdir(path):
+        if file.find("INFO") == -1 or file.endswith("INFO"):
+            continue
+        
+        rs.append(f'{path}/{file}')
+    return rs;
+
 log_objs = {
-    'raft1': [f'{logDir}/raft1/raft1.INFO'],
-    'raft2': [f'{logDir}/raft2/raft2.INFO'],
-    'raft3': [f'{logDir}/raft3/raft3.INFO']
+    'raft1': log_list(f'{logDir}/raft1'),
+    'raft2': log_list(f'{logDir}/raft2'),
+    'raft3': log_list(f'{logDir}/raft3')
 }
+
 
 # I20230711 00:37:41.649639 11342532 raft.cpp:104] Switch to follower!
 log_p = re.compile('[IWEF](.{24}) ([\d]+) ([\w.]+):([\d]+)\] (.*)')

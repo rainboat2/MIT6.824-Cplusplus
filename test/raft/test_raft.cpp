@@ -22,7 +22,7 @@ class RaftTest : public testing::Test {
 protected:
     void SetUp() override
     {
-        ports_ = { 8001, 8002, 8003, 8004, 8005 };
+        ports_ = { 8001, 8002, 8003, 8004, 8005, 8006, 8007, 8008 };
         GlobalOutput.setOutputFunction([](const char* msg){
             LOG(INFO) << msg;
         });
@@ -51,6 +51,7 @@ protected:
 
     vector<int> findLeaders()
     {
+        std::this_thread::sleep_for(MAX_ELECTION_TIMEOUT * 2);
         vector<int> leaders;
         for (int i = 0; i < rafts_.size(); i++) {
             auto st = getState(i);
@@ -84,6 +85,8 @@ private:
             client->getState(st);
         } catch (TException& tx) {
             st = INVALID_RAFTSTATE;
+            LOG(INFO) << "Get State failed! " << tx.what();
+            cm_.setInvalid(i);
         }
         return st;
     }
@@ -112,7 +115,6 @@ TEST_F(RaftTest, TestInitialElection2A)
         EXPECT_EQ(st.peers.size(), RAFT_NUM - 1);
     }
 
-    std::this_thread::sleep_for(MAX_ELECTION_TIMEOUT * 2);
     EXPECT_EQ(findLeaders().size(), 1);
 }
 
@@ -120,17 +122,15 @@ TEST_F(RaftTest, TestReElection2A)
 {
     const int RAFT_NUM = 3;
     initRafts(RAFT_NUM);
-    std::this_thread::sleep_for(MAX_ELECTION_TIMEOUT * 2);
+
     auto leaders = findLeaders();
     EXPECT_EQ(leaders.size(), 1);
     RaftProcess* leader = &rafts_[leaders[0]];
 
     leader->killRaft();
-    std::this_thread::sleep_for(MAX_ELECTION_TIMEOUT * 2);
     EXPECT_EQ(findLeaders().size(), 1);
 
     leader->start();
-    std::this_thread::sleep_for(HEART_BEATS_INTERVAL * 2);
     leaders = findLeaders();
     EXPECT_EQ(leaders.size(), 1);
 
@@ -138,11 +138,18 @@ TEST_F(RaftTest, TestReElection2A)
     leader->killRaft();
     auto* follower = &rafts_[(leaders[0] + 1) % RAFT_NUM];
     follower->killRaft();
-    std::this_thread::sleep_for(MAX_ELECTION_TIMEOUT);
+
     EXPECT_EQ(findLeaders().size(), 0);
 
     leader->start();
     follower->start();
-    std::this_thread::sleep_for(MAX_ELECTION_TIMEOUT);
+    EXPECT_EQ(findLeaders().size(), 1);
+}
+
+TEST_F(RaftTest, TestManyElections2A)
+{
+    const int RAFT_NUM = 7;
+    initRafts(RAFT_NUM);
+
     EXPECT_EQ(findLeaders().size(), 1);
 }

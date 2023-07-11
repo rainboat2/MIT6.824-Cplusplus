@@ -10,7 +10,7 @@
 #include <raft/rpc/raft_types.h>
 
 constexpr auto NOW = std::chrono::steady_clock::now;
-constexpr auto RPC_TIMEOUT = std::chrono::milliseconds(100);
+constexpr auto RPC_TIMEOUT = std::chrono::milliseconds(500);
 constexpr auto MIN_ELECTION_TIMEOUT = std::chrono::milliseconds(150);
 constexpr auto MAX_ELECTION_TIMEOUT = std::chrono::milliseconds(300);
 constexpr auto HEART_BEATS_INTERVAL = std::chrono::milliseconds(50);

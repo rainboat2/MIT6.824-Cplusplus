@@ -1,7 +1,7 @@
 #!/bin/bash
 
 logDir=../../logs
-raftNum=3
+raftNum=7
 
 rm -rf $logDir
 mkdir $logDir

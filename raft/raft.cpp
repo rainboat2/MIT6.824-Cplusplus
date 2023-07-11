@@ -89,8 +89,11 @@ void RaftRPCHandler::appendEntries(AppendEntriesResult& _return, const AppendEnt
     }
 
     lastSeenLeader_ = NOW();
-
-    LOG(INFO) << "Receive appendEntries request : " << params;
+    if (params.entries.empty()) {
+        LOG_EVERY_N(INFO, 10) << "Receive 10 heart beats from leader!";
+    } else {
+        LOG(INFO) << "Receive appendEntries request : " << params;
+    }
     _return.success = true;
 }
 
@@ -103,6 +106,7 @@ void RaftRPCHandler::getState(RaftState& _return)
     _return.lastApplied = lastApplied_;
     _return.state = state_;
     _return.peers = peers_;
+    LOG(INFO) << "Get raft state: " << _return;
 }
 
 void RaftRPCHandler::switchToFollow()
@@ -272,7 +276,7 @@ void RaftRPCHandler::async_sendHeartBeats()
 
                     AppendEntriesResult rs;
                     client->appendEntries(rs, params);
-                    LOG(INFO) << fmt::format("Send heart beats to ({}, {})", addr.ip, addr.port);
+                    LOG_EVERY_N(INFO, 10) << fmt::format("Send 10 heart beats to ({}, {})", addr.ip, addr.port);
                 } catch (TException& tx) {
                     LOG(ERROR) << fmt::format("Send heart beats to ({}, {}) failed: {}", addr.ip, addr.port, tx.what());
                 }

@@ -18,7 +18,7 @@ clean:
 	rm $(BIN)/test_raft
 
 run-test: $(BIN)/test_raft
-	$(BIN)/test_raft
+	$(BIN)/test_raft $(cmd_args)
 
 make-raft:
 	make -C $(ROOTDIR)/raft
