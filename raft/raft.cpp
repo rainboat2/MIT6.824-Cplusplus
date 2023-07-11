@@ -16,9 +16,8 @@
 #include <thrift/server/TThreadedServer.h>
 #include <thrift/transport/TBufferTransports.h>
 #include <thrift/transport/TServerSocket.h>
-#include <thrift/transport/TSocket.h>
-#include <thrift/transport/TTransportUtils.h>
 
+#include <raft/ClientManager.h>
 #include <raft/raft.h>
 
 using namespace ::apache::thrift;
@@ -36,14 +35,11 @@ RaftRPCHandler::RaftRPCHandler(vector<RaftAddr>& peers, RaftAddr me)
     , commitIndex_(0)
     , lastApplied_(0)
     , state_(ServerState::FOLLOWER)
+    , lastSeenLeader_(NOW())
     , peers_(peers)
     , me_(std::move(me))
     , inElection_(false)
 {
-    for (int i = 0; i < peers_.size(); i++) {
-        clients_.push_back(RaftRPCClient(nullptr));
-        initPeerClient(i);
-    }
     switchToFollow();
 }
 
@@ -57,16 +53,16 @@ void RaftRPCHandler::requestVote(RequestVoteResult& _return, const RequestVotePa
         return;
     }
 
-    if (votedFor_ != NULL_ADDR || votedFor_ != params.candidateId) {
-        LOG(INFO) << "Receive a vote request, but already voted to another candidate, reject it.";
+    if (votedFor_ != NULL_ADDR && votedFor_ != params.candidateId) {
+        LOG(INFO) << fmt::format("Receive a vote request, but already voted to ({}, {}), reject it.", votedFor_.ip, votedFor_.port);
         _return.voteGranted = false;
         return;
     }
 
-    if (params.lastLogIndex < commitIndex_) {
-        LOG(INFO) << "Receive a vote request from candidate with older log, reject it.";
-        _return.voteGranted = false;
-    }
+    // if (params.lastLogIndex < commitIndex_) {
+    //     LOG(INFO) << "Receive a vote request from candidate with older log, reject it.";
+    //     _return.voteGranted = false;
+    // }
 
     LOG(INFO) << "Vote to " << params.candidateId;
     votedFor_ = params.candidateId;
@@ -87,7 +83,11 @@ void RaftRPCHandler::appendEntries(AppendEntriesResult& _return, const AppendEnt
         LOG(INFO) << fmt::format("Received logs from higher term leader, switch to follower!");
         switchToFollow();
     }
+
     lastSeenLeader_ = NOW();
+    
+    LOG(INFO) << "Receive appendEntries request : " << params;
+    _return.success = true;
 }
 
 void RaftRPCHandler::getState(RaftState& _return)
@@ -99,24 +99,6 @@ void RaftRPCHandler::getState(RaftState& _return)
     _return.lastApplied = lastApplied_;
     _return.state = state_;
     _return.peers = peers_;
-}
-
-void RaftRPCHandler::initPeerClient(int i)
-{
-    RaftAddr addr = peers_[i];
-    try {
-        auto sk = new TSocket(addr.ip, addr.port);
-        sk->setConnTimeout(RPC_TIMEOUT.count());
-        sk->setRecvTimeout(RPC_TIMEOUT.count());
-        sk->setSendTimeout(RPC_TIMEOUT.count());
-        std::shared_ptr<TTransport> socket(sk);
-        std::shared_ptr<TTransport> transport(new TBufferedTransport(socket));
-        std::shared_ptr<TProtocol> protocol(new TBinaryProtocol(transport));
-        clients_.push_back(RaftRPCClient(protocol));
-        transport->open();
-    } catch (TException& tx) {
-        LOG(ERROR) << fmt::format("Init Peer {{IP: {}, port: {} }} failed: {}", addr.ip, addr.port, tx.what());
-    }
 }
 
 void RaftRPCHandler::switchToFollow()
@@ -144,7 +126,7 @@ void RaftRPCHandler::switchToCandidate()
 void RaftRPCHandler::switchToLeader()
 {
     state_ = ServerState::LEADER;
-    LOG(INFO) << "Switch to Leader!";
+    LOG(INFO) << "Switch to Leader! Term: " << currentTerm_;
     std::thread hb([this]() {
         this->async_sendHeartBeats();
     });
@@ -221,15 +203,27 @@ void RaftRPCHandler::async_startElection() noexcept
         vector<std::thread> threads(peers_.size());
         for (int i = 0; i < peers_.size(); i++) {
             threads[i] = std::thread([i, this, &params, &voteCnt]() {
+                RequestVoteResult rs;
+                RaftAddr addr;
+                RaftRPCClient* client;
                 try {
-                    RequestVoteResult rs;
-                    auto& client = this->ge
-                    this->peers_[i].requestVote(rs, params);
-                    if (rs.voteGranted)
-                        voteCnt++;
+                    {
+                        std::lock_guard<std::mutex> guard(lock_);
+                        addr = this->peers_[i];
+                        client = this->cm_.getClient(i, addr);
+                    }
+                    client->requestVote(rs, params);
                 } catch (TException& tx) {
-                    LOG(ERROR) << fmt::format("Request vote error: {}", tx.what());
-                    this->initPeerClient(i);
+                    LOG(ERROR) << fmt::format("Request ({},{}) for voting error: {}", addr.ip, addr.port, tx.what());
+                    cm_.setInvalid(i);
+                }
+
+                if (rs.voteGranted) {
+                    voteCnt++;
+                } else {
+                    std::lock_guard<std::mutex> guard(this->lock_);
+                    if (this->currentTerm_ < rs.term)
+                        this->currentTerm_ = rs.term;
                 }
             });
         }
@@ -237,7 +231,7 @@ void RaftRPCHandler::async_startElection() noexcept
         for (int i = 0; i < threads.size(); i++)
             threads[i].join();
 
-        int raftNum = clients_.size() + 1;
+        int raftNum = peers_.size() + 1;
         LOG(INFO) << fmt::format("Raft nums: {}, get votes: {}", raftNum, voteCnt.load());
         if (voteCnt > raftNum / 2) {
             std::lock_guard<std::mutex> guard(lock_);
@@ -260,17 +254,29 @@ void RaftRPCHandler::async_sendHeartBeats()
         params.term = currentTerm_;
         params.leaderId = me_;
 
-        vector<std::thread> threads(clients_.size());
-        for (int i = 0; i < clients_.size(); i++) {
+        vector<std::thread> threads(peers_.size());
+        for (int i = 0; i < peers_.size(); i++) {
             threads[i] = std::thread([i, this, &params]() {
                 try {
+                    RaftAddr addr;
+                    RaftRPCClient* client;
+                    {
+                        std::lock_guard<std::mutex> guard(lock_);
+                        addr = this->peers_[i];
+                        client = cm_.getClient(i, addr);
+                    }
+
                     AppendEntriesResult rs;
-                    this->clients_[i].appendEntries(rs, params);
+                    client->appendEntries(rs, params);
+                    LOG(INFO) << fmt::format("Send heart beats to ({}, {})", addr.ip, addr.port);
                 } catch (TException& tx) {
                     LOG(ERROR) << fmt::format("Send heart beats failed: {}", tx.what());
-                    this->initPeerClient(i);
                 }
             });
+        }
+
+        for (int i = 0; i < peers_.size(); i++) {
+            threads[i].join();
         }
 
         std::this_thread::sleep_for(HEART_BEATS_INTERVAL);

@@ -1,0 +1,295 @@
+[ Start to listen on RaftAddr(ip=127.0.0.1, port=8001), peers size: 2] RaftProcess.hpp:47 2023-07-11 12:13:25.497126		
+[ Switch to follower!] raft.cpp:108 2023-07-11 12:13:25.505043		
+	[ Start to listen on RaftAddr(ip=127.0.0.1, port=8002), peers size: 2] RaftProcess.hpp:47 2023-07-11 12:13:25.534052	
+	[ Switch to follower!] raft.cpp:108 2023-07-11 12:13:25.537546	
+		[ Start to listen on RaftAddr(ip=127.0.0.1, port=8003), peers size: 2] RaftProcess.hpp:47 2023-07-11 12:13:25.566432
+		[ Switch to follower!] raft.cpp:108 2023-07-11 12:13:25.568969
+[ Election timeout, start a election.] raft.cpp:157 2023-07-11 12:13:25.812474		
+[ Switch to Candidate!] raft.cpp:119 2023-07-11 12:13:25.812562		
+[ Start a new election term!] raft.cpp:182 2023-07-11 12:13:25.812822		
+	[ Vote to RaftAddr(ip=127.0.0.1, port=8001)] raft.cpp:67 2023-07-11 12:13:25.814185	
+		[ Vote to RaftAddr(ip=127.0.0.1, port=8001)] raft.cpp:67 2023-07-11 12:13:25.814543
+[ Raft nums: 3, get votes: 3] raft.cpp:236 2023-07-11 12:13:25.815613		
+[ Switch to Leader! Term: 1] raft.cpp:130 2023-07-11 12:13:25.815685		
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:25.816345		
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:25.816355		
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:25.839632		
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:25.839684		
+	[ Election timeout, start a election.] raft.cpp:157 2023-07-11 12:13:25.863528	
+	[ Switch to Candidate!] raft.cpp:119 2023-07-11 12:13:25.863605	
+	[ Start a new election term!] raft.cpp:182 2023-07-11 12:13:25.863865	
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:25.863940		
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:25.864010		
+[ Out of fashion vote request, term: 1, currentTerm: 1] raft.cpp:51 2023-07-11 12:13:25.864993		
+		[ Receive a vote request, but already voted to (127.0.0.1, 8001), reject it.] raft.cpp:57 2023-07-11 12:13:25.865176
+	[ Raft nums: 3, get votes: 1] raft.cpp:236 2023-07-11 12:13:25.865432	
+		[ Election timeout, start a election.] raft.cpp:157 2023-07-11 12:13:25.878203
+		[ Switch to Candidate!] raft.cpp:119 2023-07-11 12:13:25.878291
+		[ Start a new election term!] raft.cpp:182 2023-07-11 12:13:25.878535
+[ Out of fashion vote request, term: 1, currentTerm: 1] raft.cpp:51 2023-07-11 12:13:25.879572		
+	[ Out of fashion vote request, term: 1, currentTerm: 1] raft.cpp:51 2023-07-11 12:13:25.879938	
+		[ Raft nums: 3, get votes: 1] raft.cpp:236 2023-07-11 12:13:25.880128
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:25.887312		
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:25.887337		
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:25.911813		
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:25.911849		
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:25.936542		
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:25.936578		
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:25.961416		
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:25.961431		
+[ Raft become a leader, exit the checkLeaderStatus thread!] raft.cpp:166 2023-07-11 12:13:25.966832		
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:25.985270		
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:25.985291		
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.009588		
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.009644		
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.034401		
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.034410		
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.059535		
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.059556		
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.084604		
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.084847		
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.107853		
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.108095		
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.131597		
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.131696		
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.156095		
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.156100		
+	[ Election timeout, start a election.] raft.cpp:157 2023-07-11 12:13:26.171802	
+	[ Switch to Candidate!] raft.cpp:119 2023-07-11 12:13:26.171880	
+	[ Start a new election term!] raft.cpp:182 2023-07-11 12:13:26.172148	
+[ Vote to RaftAddr(ip=127.0.0.1, port=8002)] raft.cpp:67 2023-07-11 12:13:26.172571		
+		[ Receive a vote request, but already voted to (127.0.0.1, 8003), reject it.] raft.cpp:57 2023-07-11 12:13:26.172590
+	[ Raft nums: 3, get votes: 2] raft.cpp:236 2023-07-11 12:13:26.173707	
+	[ Switch to Leader! Term: 2] raft.cpp:130 2023-07-11 12:13:26.173761	
+	[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.174296	
+	[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.174357	
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.179847		
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.179853		
+		[ Election timeout, start a election.] raft.cpp:157 2023-07-11 12:13:26.183959
+		[ Switch to Candidate!] raft.cpp:119 2023-07-11 12:13:26.184090
+		[ Start a new election term!] raft.cpp:182 2023-07-11 12:13:26.184453
+[ Receive a vote request, but already voted to (127.0.0.1, 8002), reject it.] raft.cpp:57 2023-07-11 12:13:26.184942		
+	[ Out of fashion vote request, term: 2, currentTerm: 2] raft.cpp:51 2023-07-11 12:13:26.184988	
+		[ Raft nums: 3, get votes: 1] raft.cpp:236 2023-07-11 12:13:26.185314
+	[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.199577	
+	[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.199596	
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.204023		
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.204046		
+	[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.220688	
+	[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.220698	
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.227401		
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.227463		
+	[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.243986	
+	[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.244125	
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.251063		
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.251078		
+	[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.269299	
+	[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.269325	
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.275480		
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.275502		
+	[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.291218	
+	[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.291229	
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.301326		
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.301348		
+	[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.315774	
+	[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.315848	
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.325685		
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.325704		
+	[ Raft become a leader, exit the checkLeaderStatus thread!] raft.cpp:166 2023-07-11 12:13:26.326722	
+	[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.338850	
+	[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.338887	
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.351210		
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.351365		
+	[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.363145	
+	[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.363178	
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.373616		
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.373659		
+	[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.388362	
+	[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.388504	
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.397612		
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.397621		
+	[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.410578	
+	[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.410599	
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.421926		
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.422046		
+	[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.435716	
+	[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.435739	
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.444168		
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.444181		
+	[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.460600	
+	[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.460613	
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.468540		
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.468576		
+	[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.484827	
+	[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.484848	
+		[ Election timeout, start a election.] raft.cpp:157 2023-07-11 12:13:26.490080
+		[ Switch to Candidate!] raft.cpp:119 2023-07-11 12:13:26.490164
+		[ Start a new election term!] raft.cpp:182 2023-07-11 12:13:26.490387
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.490454		
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.490464		
+	[ Vote to RaftAddr(ip=127.0.0.1, port=8003)] raft.cpp:67 2023-07-11 12:13:26.490685	
+[ Receive a vote request, but already voted to (127.0.0.1, 8002), reject it.] raft.cpp:57 2023-07-11 12:13:26.490687		
+		[ Raft nums: 3, get votes: 2] raft.cpp:236 2023-07-11 12:13:26.491241
+		[ Switch to Leader! Term: 3] raft.cpp:130 2023-07-11 12:13:26.491286
+		[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.491868
+		[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.491875
+	[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.507088	
+	[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.507108	
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.512809		
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.512828		
+		[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.516499
+		[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.516520
+	[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.532112	
+	[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.532138	
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.537230		
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.537268		
+		[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.540784
+		[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.540817
+	[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.552824	
+	[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.552846	
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.559144		
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.559150		
+		[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.566390
+		[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.566398
+	[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.574833	
+	[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.574926	
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.583936		
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.583950		
+		[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.590530
+		[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.590552
+	[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.600935	
+	[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.601130	
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.608234		
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.608304		
+		[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.615531
+		[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.615536
+	[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.625712	
+	[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.625830	
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.632607		
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.632622		
+		[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.640547
+		[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.640622
+		[ Raft become a leader, exit the checkLeaderStatus thread!] raft.cpp:166 2023-07-11 12:13:26.642187
+	[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.652164	
+	[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.652208	
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.654511		
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.655025		
+		[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.666309
+		[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.666388
+	[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.677781	
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.677783		
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.677799		
+	[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.677819	
+		[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.688640
+		[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.688673
+	[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.702917	
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.702930		
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.702939		
+	[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.702939	
+		[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.710186
+		[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.710193
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.727342		
+	[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.727344	
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.727362		
+	[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.727401	
+		[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.735821
+		[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.735848
+	[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.751003	
+	[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.751025	
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.751030		
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.751174		
+		[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.761193
+		[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.761241
+	[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.775890	
+	[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.775892	
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.775907		
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.775959		
+		[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.786878
+		[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.786973
+	[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.801124	
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.801136		
+	[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.801156	
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.801204		
+		[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.811182
+		[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.811204
+	[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.826438	
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.826448		
+	[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.826460	
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.826464		
+		[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.836773
+		[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.836787
+	[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.851184	
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.851198		
+	[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.851383	
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.851475		
+		[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.861910
+		[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.861934
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.876962		
+	[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.876986	
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.876999		
+	[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.877029	
+		[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.884501
+		[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.884552
+	[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.901383	
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.901410		
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.901430		
+	[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.901434	
+		[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.910256
+		[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.910269
+	[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.925628	
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.925640		
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.925668		
+	[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.925669	
+		[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.935995
+		[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.936007
+	[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.967715	
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.968803		
+	[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.968839	
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.968989		
+		[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.969736
+		[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.971762
+	[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.992018	
+	[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.992041	
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:26.997195		
+		[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.997197
+		[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:26.997210
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:26.997220		
+	[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:27.030203	
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:27.033751		
+		[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:27.033938
+	[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:27.034205	
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:27.035140		
+		[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:27.035557
+	[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:27.061053	
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:27.061069		
+	[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:27.061074	
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:27.061094		
+		[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:27.061218
+		[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:27.061323
+	[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:27.084751	
+	[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:27.084786	
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:27.084870		
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:27.084933		
+		[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:27.086781
+		[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:27.086797
+	[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:27.107777	
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:27.107779		
+	[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:27.107817	
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:27.107818		
+		[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:27.112267
+		[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:27.112321
+	[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:27.133059	
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:27.133072		
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:27.133126		
+	[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:27.133255	
+		[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:27.136749
+		[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:27.136760
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:27.156363		
+	[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:27.156364	
+	[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:27.156373	
+[ Send heart beats to (127.0.0.1, 8003)] raft.cpp:272 2023-07-11 12:13:27.156383		
+		[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:27.159339
+		[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:27.159368
+	[ Send heart beats to (127.0.0.1, 8001)] raft.cpp:272 2023-07-11 12:13:27.181741	
+[ Send heart beats to (127.0.0.1, 8002)] raft.cpp:272 2023-07-11 12:13:27.181782		
+[ Send heart beats failed: No more data to read.] raft.cpp:274 2023-07-11 12:13:27.201376		

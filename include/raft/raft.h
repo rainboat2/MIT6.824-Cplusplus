@@ -5,6 +5,7 @@
 #include <mutex>
 #include <vector>
 
+#include <raft/ClientManager.h>
 #include <raft/rpc/RaftRPC.h>
 #include <raft/rpc/raft_types.h>
 
@@ -12,7 +13,7 @@ constexpr auto NOW = std::chrono::steady_clock::now;
 constexpr auto RPC_TIMEOUT = std::chrono::milliseconds(100);
 constexpr auto MIN_ELECTION_TIMEOUT = std::chrono::milliseconds(150);
 constexpr auto MAX_ELECTION_TIMEOUT = std::chrono::milliseconds(300);
-constexpr auto HEART_BEATS_INTERVAL = std::chrono::milliseconds(20);
+constexpr auto HEART_BEATS_INTERVAL = std::chrono::milliseconds(50);
 const RaftAddr NULL_ADDR;
 
 class RaftRPCHandler : virtual public RaftRPCIf {
@@ -26,10 +27,6 @@ public:
     void getState(RaftState& _return) override;
 
 private:
-    void initPeerClient(int i);
-
-    void getClient(int i);
-
     void switchToFollow();
 
     void switchToCandidate();
@@ -62,7 +59,7 @@ private:
     ServerState::type state_;
     std::mutex lock_;
     std::chrono::steady_clock::time_point lastSeenLeader_;
-    std::unordered_map<int, RaftRPCClient> clientsMap_;
+    ClientManager cm_;
     std::vector<RaftAddr> peers_;
     RaftAddr me_;
     std::atomic<bool> inElection_;
