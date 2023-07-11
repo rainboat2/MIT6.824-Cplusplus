@@ -44,6 +44,7 @@ public:
             google::InitGoogleLogging(log_dir_.c_str());
             FLAGS_log_dir = log_dir_;
             FLAGS_logbuflevel = -1;
+            FLAGS_stderrthreshold = 5;
             LOG(INFO) << "Start to listen on " << me_ << ", peers size: " << peers_.size();
             std::shared_ptr<RaftRPCHandler> handler(new RaftRPCHandler(peers_, me_));
             std::shared_ptr<TProcessor> processor(new RaftRPCProcessor(handler));

@@ -13,3 +13,4 @@ objs
 lib
 bin
 logs
+tools/logs.tsv

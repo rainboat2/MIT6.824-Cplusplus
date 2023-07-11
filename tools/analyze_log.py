@@ -1,5 +1,6 @@
 from datetime import datetime
 import os
+import re
 
 curDir = os.getcwd()
 logDir = f'{curDir}/../logs'
@@ -10,23 +11,24 @@ log_objs = {
     'raft3': [f'{logDir}/raft3/raft3.INFO']
 }
 
+# I20230711 00:37:41.649639 11342532 raft.cpp:104] Switch to follower!
+log_p = re.compile('[IWEF](.{24}) ([\d]+) ([\w.]+):([\d]+)\] (.*)')
 
 class OneLog:
-    def __init__(self, line, objNo):
-        # I20230711 00:37:41.649639 11342532 raft.cpp:104] Switch to follower!
-        meta, info = line.split(']')
-        meta = meta.split(' ')
-        self.time = datetime.strptime(
-            f'{meta[0][1:]} {meta[1]}', '%Y%m%d %H:%M:%S.%f')
-        self.process = meta[-1]
-        self.info = info.strip('\n')
+    def __init__(self, time, file, line, msg, objNo):
+        self.time = datetime.strptime(time, '%Y%m%d %H:%M:%S.%f')
+        self.file = file
+        self.line = line
+        self.msg = msg.strip('\n')
         self.objNo = objNo
 
     def __repr__(self) -> str:
-        return f'[{self.info}] {self.process} {self.time}'
+        time = self.time.strftime('%H:%M:%S.%f')
+        return f'[{self.msg}] {self.file}:{self.line} ({time})'
 
     def __str__(self) -> str:
-        return f'[{self.info}] {self.process} {self.time}'
+        time = self.time.strftime('%H:%M:%S.%f')
+        return f'[{self.msg}] {self.file}:{self.line} ({time})'
 
 
 logs = []
@@ -34,10 +36,10 @@ for key in log_objs.keys():
     for logf in log_objs[key]:
         with open(logf, 'r') as f:
             for line in f:
-                elems = line.split(']')
-                if len(elems) != 2:
+                m = log_p.match(line)
+                if m is None:
                     continue
-                logs.append(OneLog(line, key))
+                logs.append(OneLog(m[1], m[3], m[4], m[5], key))
 
 logs.sort(key=lambda x: x.time, reverse=False)
 

@@ -5,7 +5,7 @@ LIBS := $(LIBS) -lgtest -lgtest_main -lraft
 
 RAFT_LIB = $(LIBDIR)/libraft.a
 
-all: make-raft $(BIN)/test_raft
+all: $(BIN)/test_raft
 
 $(BIN)/%: %.cpp $(RAFT_LIB) RaftProcess.hpp make-raft
 	$(CC) $(CPPFLAGS) $(LIBS) $(LDFLAGS) $(INC) -o $@ $<
@@ -17,7 +17,7 @@ $(RAFT_LIB):
 clean:
 	rm $(BIN)/test_raft
 
-run-test:
+run-test: $(BIN)/test_raft
 	$(BIN)/test_raft
 
 make-raft:

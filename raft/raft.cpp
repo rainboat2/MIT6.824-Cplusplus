@@ -79,13 +79,17 @@ void RaftRPCHandler::appendEntries(AppendEntriesResult& _return, const AppendEnt
         return;
     }
 
-    if (params.term > currentTerm_ && state_ != ServerState::FOLLOWER) {
-        LOG(INFO) << fmt::format("Received logs from higher term leader, switch to follower!");
-        switchToFollow();
+    if (params.term > currentTerm_) {
+        currentTerm_ = params.term;
+        votedFor_ = NULL_ADDR;
+        LOG(INFO) << fmt::format("Received logs from higher term leader, term: {}, currentTerm: {}", params.term, currentTerm_);
+        if (state_ != ServerState::FOLLOWER) {
+            switchToFollow();
+        }
     }
 
     lastSeenLeader_ = NOW();
-    
+
     LOG(INFO) << "Receive appendEntries request : " << params;
     _return.success = true;
 }
@@ -257,8 +261,8 @@ void RaftRPCHandler::async_sendHeartBeats()
         vector<std::thread> threads(peers_.size());
         for (int i = 0; i < peers_.size(); i++) {
             threads[i] = std::thread([i, this, &params]() {
+                RaftAddr addr;
                 try {
-                    RaftAddr addr;
                     RaftRPCClient* client;
                     {
                         std::lock_guard<std::mutex> guard(lock_);
@@ -270,7 +274,7 @@ void RaftRPCHandler::async_sendHeartBeats()
                     client->appendEntries(rs, params);
                     LOG(INFO) << fmt::format("Send heart beats to ({}, {})", addr.ip, addr.port);
                 } catch (TException& tx) {
-                    LOG(ERROR) << fmt::format("Send heart beats failed: {}", tx.what());
+                    LOG(ERROR) << fmt::format("Send heart beats to ({}, {}) failed: {}", addr.ip, addr.port, tx.what());
                 }
             });
         }
