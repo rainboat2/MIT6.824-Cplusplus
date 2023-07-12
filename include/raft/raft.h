@@ -11,10 +11,15 @@
 
 constexpr auto NOW = std::chrono::steady_clock::now;
 constexpr auto RPC_TIMEOUT = std::chrono::milliseconds(500);
-constexpr auto MIN_ELECTION_TIMEOUT = std::chrono::milliseconds(150);
-constexpr auto MAX_ELECTION_TIMEOUT = std::chrono::milliseconds(300);
+constexpr auto MIN_ELECTION_TIMEOUT = std::chrono::milliseconds(300);
+constexpr auto MAX_ELECTION_TIMEOUT = std::chrono::milliseconds(600);
 constexpr auto HEART_BEATS_INTERVAL = std::chrono::milliseconds(50);
 const RaftAddr NULL_ADDR;
+
+inline std::string to_string(const RaftAddr& addr)
+{
+    return '(' + addr.ip + ',' + std::to_string(addr.port) + ')';
+}
 
 class RaftRPCHandler : virtual public RaftRPCIf {
 public:
@@ -59,10 +64,16 @@ private:
     ServerState::type state_;
     std::mutex lock_;
     std::chrono::steady_clock::time_point lastSeenLeader_;
-    ClientManager cm_;
     std::vector<RaftAddr> peers_;
     RaftAddr me_;
     std::atomic<bool> inElection_;
+
+    /*
+     * Thrift client is thread-unsafe. Considering efficiency and safety, 
+     * for each kind of task we arrange a ClientManager.
+     */
+    ClientManager cmForHB_;  // client manager for heart beats
+    ClientManager cmForRV_;  //  client manager for request vote
 };
 
 #endif

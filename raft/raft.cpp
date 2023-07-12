@@ -1,5 +1,6 @@
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <future>
 #include <memory>
 #include <queue>
@@ -29,6 +30,26 @@ using std::string;
 using std::vector;
 using time_point = std::chrono::steady_clock::time_point;
 
+class Timer {
+public:
+    Timer(string start_msg, string end_msg)
+        : end_msg_(std::move(end_msg))
+    {
+        start_ = NOW();
+        LOG(INFO) << start_msg;
+    }
+
+    ~Timer()
+    {
+        auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(NOW() - start_);
+        LOG(INFO) << end_msg_ << " Used: " << dur.count() << "ms";
+    }
+
+private:
+    time_point start_;
+    string end_msg_;
+};
+
 RaftRPCHandler::RaftRPCHandler(vector<RaftAddr>& peers, RaftAddr me)
     : currentTerm_(0)
     , votedFor_(NULL_ADDR)
@@ -39,50 +60,67 @@ RaftRPCHandler::RaftRPCHandler(vector<RaftAddr>& peers, RaftAddr me)
     , peers_(peers)
     , me_(std::move(me))
     , inElection_(false)
+    , cmForHB_(peers.size())
+    , cmForRV_(peers.size())
 {
     switchToFollow();
 }
 
 void RaftRPCHandler::requestVote(RequestVoteResult& _return, const RequestVoteParams& params)
 {
+    Timer t("Start requestVote!", "Finished requestVote!");
     std::lock_guard<std::mutex> guard(lock_);
-    _return.term = currentTerm_;
-    if (params.term <= currentTerm_) {
-        LOG(INFO) << fmt::format("Out of fashion vote request, term: {}, currentTerm: {}", params.term, currentTerm_);
+
+    if (params.term > currentTerm_) {
+        votedFor_ = NULL_ADDR;
+        if (state_ != ServerState::FOLLOWER)
+            switchToFollow();
+        currentTerm_ = params.term;
+    }
+
+    if (params.term < currentTerm_) {
+        LOG(INFO) << fmt::format("Out of fashion vote request from {}, term: {}, currentTerm: {}",
+            to_string(params.candidateId), params.term, currentTerm_);
+        _return.term = currentTerm_;
         _return.voteGranted = false;
         return;
     }
 
-    if (votedFor_ != NULL_ADDR && votedFor_ != params.candidateId) {
-        LOG(INFO) << fmt::format("Receive a vote request, but already voted to ({}, {}), reject it.", votedFor_.ip, votedFor_.port);
+    if (params.term == currentTerm_ && votedFor_ != NULL_ADDR && votedFor_ != params.candidateId) {
+        LOG(INFO) << fmt::format("Receive a vote request from {}, but already voted to {}, reject it.",
+            to_string(params.candidateId), to_string(votedFor_));
+        _return.term = currentTerm_;
         _return.voteGranted = false;
         return;
     }
 
-    // if (params.lastLogIndex < commitIndex_) {
-    //     LOG(INFO) << "Receive a vote request from candidate with older log, reject it.";
-    //     _return.voteGranted = false;
-    // }
-
-    LOG(INFO) << "Vote to " << params.candidateId;
+    LOG(INFO) << "Vote for " << params.candidateId;
     votedFor_ = params.candidateId;
     _return.voteGranted = true;
+    _return.term = currentTerm_;
 }
 
 void RaftRPCHandler::appendEntries(AppendEntriesResult& _return, const AppendEntriesParams& params)
 {
+    Timer t("Start appendEntries!", "Finished appendEntries!");
     std::lock_guard<std::mutex> guard(lock_);
     _return.term = currentTerm_;
     if (params.term < currentTerm_) {
-        LOG(INFO) << fmt::format("Out of fashion appendEntries, term: {}, currentTerm: {}", params.term, currentTerm_);
+        LOG(INFO) << fmt::format("Out of fashion appendEntries from {}, term: {}, currentTerm: {}",
+            to_string(params.leaderId), params.term, currentTerm_);
         _return.success = false;
         return;
     }
 
+    if (params.term == currentTerm_ && state_ != ServerState::FOLLOWER) {
+        switchToFollow();
+    }
+
     if (params.term > currentTerm_) {
+        LOG(INFO) << fmt::format("Received logs from higher term leader {}, term: {}, currentTerm: {}",
+            to_string(params.leaderId), params.term, currentTerm_);
         currentTerm_ = params.term;
         votedFor_ = NULL_ADDR;
-        LOG(INFO) << fmt::format("Received logs from higher term leader, term: {}, currentTerm: {}", params.term, currentTerm_);
         if (state_ != ServerState::FOLLOWER) {
             switchToFollow();
         }
@@ -90,15 +128,17 @@ void RaftRPCHandler::appendEntries(AppendEntriesResult& _return, const AppendEnt
 
     lastSeenLeader_ = NOW();
     if (params.entries.empty()) {
-        LOG_EVERY_N(INFO, 10) << "Receive 10 heart beats from leader!";
+        LOG(INFO) << fmt::format("Received heart beats from leader {}, term: {}, currentTerm: {}",
+            to_string(params.leaderId), params.term, currentTerm_);
     } else {
-        LOG(INFO) << "Receive appendEntries request : " << params;
+        LOG(INFO) << "Received appendEntries request : " << params;
     }
     _return.success = true;
 }
 
 void RaftRPCHandler::getState(RaftState& _return)
 {
+    Timer t("Start getState!", "Finished getState!");
     std::lock_guard<std::mutex> guard(lock_);
     _return.currentTerm = currentTerm_;
     _return.votedFor = votedFor_;
@@ -183,13 +223,14 @@ void RaftRPCHandler::async_startElection() noexcept
 {
     bool expected = false;
     if (!inElection_.compare_exchange_strong(expected, true)) {
+        LOG(INFO) << "Current raft is in the election!";
         return;
     }
 
-    LOG(INFO) << "Start a new election term!";
-    bool needRequestVote = true;
+    vector<RaftAddr> peersForRV;
     {
         std::lock_guard<std::mutex> guard(lock_);
+        LOG(INFO) << fmt::format("Start a new election! currentTerm: {}, nextTerm: {}", currentTerm_, currentTerm_ + 1);
         currentTerm_++;
         votedFor_ = me_;
 
@@ -198,59 +239,74 @@ void RaftRPCHandler::async_startElection() noexcept
          * if no leader is selected in this term.
          */
         lastSeenLeader_ = NOW();
+
+        // copy peers_ to a local variable to avoid aquire and release lock_ frequently
+        peersForRV = peers_;
     }
 
-    if (needRequestVote) {
-        RequestVoteParams params;
-        params.term = currentTerm_;
-        params.candidateId = me_;
-        params.lastLogIndex = -1;
-        params.LastLogTerm = -1;
-        std::atomic<int> voteCnt(1);
+    RequestVoteParams params;
+    params.term = currentTerm_;
+    params.candidateId = me_;
+    params.lastLogIndex = -1;
+    params.LastLogTerm = -1;
 
-        vector<std::thread> threads(peers_.size());
-        for (int i = 0; i < peers_.size(); i++) {
-            threads[i] = std::thread([i, this, &params, &voteCnt]() {
-                RequestVoteResult rs;
-                RaftAddr addr;
-                RaftRPCClient* client;
-                try {
-                    {
-                        std::lock_guard<std::mutex> guard(lock_);
-                        addr = this->peers_[i];
-                        client = this->cm_.getClient(i, addr);
-                    }
-                    client->requestVote(rs, params);
-                } catch (TException& tx) {
-                    LOG(ERROR) << fmt::format("Request ({},{}) for voting error: {}", addr.ip, addr.port, tx.what());
-                    cm_.setInvalid(i);
-                }
+    std::atomic<int> voteCnt(1);
+    std::atomic<int> finishCnt(0);
+    std::mutex finish;
+    std::condition_variable cv;
 
-                if (rs.voteGranted) {
-                    voteCnt++;
-                } else {
-                    std::lock_guard<std::mutex> guard(this->lock_);
-                    if (this->currentTerm_ < rs.term)
-                        this->currentTerm_ = rs.term;
-                }
-            });
-        }
+    vector<std::thread> threads(peersForRV.size());
+    for (int i = 0; i < peersForRV.size(); i++) {
+        threads[i] = std::thread([i, this, &peersForRV, &params, &voteCnt, &finishCnt, &cv]() {
+            RequestVoteResult rs;
+            RaftRPCClient* client;
+            try {
+                client = cmForRV_.getClient(i, peersForRV[i]);
+                client->requestVote(rs, params);
+            } catch (TException& tx) {
+                LOG(ERROR) << fmt::format("Request {} for voting error: {}", to_string(peersForRV[i]), tx.what());
+                cmForRV_.setInvalid(i);
+            }
 
-        for (int i = 0; i < threads.size(); i++)
-            threads[i].join();
+            if (rs.voteGranted)
+                voteCnt++;
+            finishCnt++;
+            cv.notify_one();
+        });
+    }
 
-        int raftNum = peers_.size() + 1;
-        LOG(INFO) << fmt::format("Raft nums: {}, get votes: {}", raftNum, voteCnt.load());
-        if (voteCnt > raftNum / 2) {
-            std::lock_guard<std::mutex> guard(lock_);
+    int raftNum = peers_.size() + 1;
+    std::unique_lock<std::mutex> lk(finish);
+    cv.wait(lk, [raftNum, &finishCnt, &voteCnt]() {
+        return voteCnt > (raftNum / 2) || (finishCnt == raftNum - 1);
+    });
+
+    LOG(INFO) << fmt::format("Raft nums: {}, get votes: {}", raftNum, voteCnt.load());
+    if (voteCnt > raftNum / 2) {
+        std::lock_guard<std::mutex> guard(lock_);
+        if (state_ == ServerState::CANDIDAE)
             switchToLeader();
-        }
+        else
+            LOG(INFO) << fmt::format("Raft is not candidate now!");
     }
+
+    for (int i = 0; i < threads.size(); i++)
+        threads[i].join();
     inElection_ = false;
 }
 
 void RaftRPCHandler::async_sendHeartBeats()
 {
+    /*
+     * copy peers_ to a local variable, so we don't need to aquire and release lock_ frequently
+     * to access peers_
+     */
+    vector<RaftAddr> peersForHB;
+    {
+        std::lock_guard<std::mutex> guard(lock_);
+        peersForHB = peers_;
+    }
+
     while (true) {
         {
             std::lock_guard<std::mutex> guard(lock_);
@@ -258,33 +314,32 @@ void RaftRPCHandler::async_sendHeartBeats()
                 return;
         }
 
-        AppendEntriesParams params;
-        params.term = currentTerm_;
-        params.leaderId = me_;
-
         vector<std::thread> threads(peers_.size());
         for (int i = 0; i < peers_.size(); i++) {
-            threads[i] = std::thread([i, this, &params]() {
+            threads[i] = std::thread([i, &peersForHB, this]() {
                 RaftAddr addr;
+                AppendEntriesParams params;
+                params.term = currentTerm_;
+                params.leaderId = me_;
                 try {
                     RaftRPCClient* client;
-                    {
-                        std::lock_guard<std::mutex> guard(lock_);
-                        addr = this->peers_[i];
-                        client = cm_.getClient(i, addr);
-                    }
+                    addr = peersForHB[i];
+                    client = cmForHB_.getClient(i, addr);
 
+                    auto app_start = NOW();
                     AppendEntriesResult rs;
                     client->appendEntries(rs, params);
-                    LOG_EVERY_N(INFO, 10) << fmt::format("Send 10 heart beats to ({}, {})", addr.ip, addr.port);
+                    LOG_EVERY_N(INFO, 1) << fmt::format("Send 1 heart beats to {}, used: {}ms",
+                        to_string(addr), std::chrono::duration_cast<std::chrono::milliseconds>(NOW() - app_start).count());
                 } catch (TException& tx) {
-                    LOG(ERROR) << fmt::format("Send heart beats to ({}, {}) failed: {}", addr.ip, addr.port, tx.what());
+                    LOG_EVERY_N(ERROR, 1) << fmt::format("Send 1 heart beats to {} failed: {}", to_string(addr), tx.what());
+                    cmForHB_.setInvalid(i);
                 }
             });
         }
 
         for (int i = 0; i < peers_.size(); i++) {
-            threads[i].join();
+            threads[i].detach();
         }
 
         std::this_thread::sleep_for(HEART_BEATS_INTERVAL);

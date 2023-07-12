@@ -38,6 +38,8 @@ public:
         using namespace apache::thrift::protocol;
         using namespace apache::thrift::transport;
         using namespace ::apache::thrift::server;
+
+        if (pid_ > 0) return;
         
         pid_ = fork();
         if (pid_ == 0) {
@@ -45,7 +47,6 @@ public:
             FLAGS_log_dir = log_dir_;
             FLAGS_logbuflevel = -1;
             FLAGS_stderrthreshold = 5;
-            LOG(INFO) << "Start to listen on " << me_ << ", peers size: " << peers_.size();
             std::shared_ptr<RaftRPCHandler> handler(new RaftRPCHandler(peers_, me_));
             std::shared_ptr<TProcessor> processor(new RaftRPCProcessor(handler));
             std::shared_ptr<TServerTransport> serverTransport(new TServerSocket(me_.port));
@@ -53,6 +54,7 @@ public:
             std::shared_ptr<TProtocolFactory> protocolFactory(new TBinaryProtocolFactory());
 
             TThreadedServer server(processor, serverTransport, transportFactory, protocolFactory);
+            LOG(INFO) << "Start to listen on " << me_ << ", peers size: " << peers_.size();
             server.serve();
         }
     }

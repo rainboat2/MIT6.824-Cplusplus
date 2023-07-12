@@ -1,4 +1,6 @@
+#include <array>
 #include <gtest/gtest.h>
+#include <random>
 #include <vector>
 
 #include <thrift/TOutput.h>
@@ -16,14 +18,16 @@ using namespace apache::thrift::transport;
 
 const RaftState INVALID_RAFTSTATE;
 
+using std::array;
 using std::vector;
 
 class RaftTest : public testing::Test {
 protected:
     void SetUp() override
     {
-        ports_ = { 8001, 8002, 8003, 8004, 8005, 8006, 8007, 8008 };
-        GlobalOutput.setOutputFunction([](const char* msg){
+        ports_ = { 7001, 7002, 7003, 7004, 7005, 7006, 7007, 7008 };
+        cm_ = ClientManager(ports_.size());
+        GlobalOutput.setOutputFunction([](const char* msg) {
             LOG(INFO) << msg;
         });
     }
@@ -47,6 +51,10 @@ protected:
         for (int i = 0; i < num; i++) {
             rafts_[i].start();
         }
+        /*
+         * Waiting for rafts to start
+         */
+        std::this_thread::sleep_for(MAX_ELECTION_TIMEOUT);
     }
 
     vector<int> findLeaders()
@@ -85,7 +93,7 @@ private:
             client->getState(st);
         } catch (TException& tx) {
             st = INVALID_RAFTSTATE;
-            LOG(INFO) << "Get State failed! " << tx.what();
+            LOG(WARNING) << fmt::format("Get State of {} failed! {};", to_string(addr), tx.what());
             cm_.setInvalid(i);
         }
         return st;
@@ -93,16 +101,34 @@ private:
 
 protected:
     std::vector<RaftProcess> rafts_;
-    ClientManager cm_;
     std::vector<std::shared_ptr<TTransport>> transports;
     std::vector<int> ports_;
+    ClientManager cm_;
 };
+
+TEST_F(RaftTest, SignleTest)
+{
+    const int RAFT_NUM = 1;
+    initRafts(RAFT_NUM);
+
+    RaftAddr addr;
+    addr.ip = "127.0.0.1";
+    RaftState st;
+    addr.port = ports_[0];
+
+    for (int i = 0; i < 10; i++) {
+        auto start = NOW();
+        auto client = cm_.getClient(0, addr);
+        client->getState(st);
+        int dur = std::chrono::duration_cast<std::chrono::milliseconds>(NOW() - start).count();
+        EXPECT_LT(dur, 10);
+    }
+}
 
 TEST_F(RaftTest, TestInitialElection2A)
 {
     const int RAFT_NUM = 3;
     initRafts(RAFT_NUM);
-    std::this_thread::sleep_for(MAX_ELECTION_TIMEOUT);
 
     RaftAddr addr;
     addr.ip = "127.0.0.1";
@@ -150,6 +176,25 @@ TEST_F(RaftTest, TestManyElections2A)
 {
     const int RAFT_NUM = 7;
     initRafts(RAFT_NUM);
+
+    EXPECT_EQ(findLeaders().size(), 1);
+
+    std::random_device rd;
+    std::uniform_int_distribution<int> r(0, 6);
+
+    for (int i = 0; i < 5; i++) {
+        array<int, 3> rfs = { r(rd), r(rd), r(rd) };
+        for (int j : rfs) {
+            rafts_[j].killRaft();
+        }
+
+        EXPECT_EQ(findLeaders().size(), 1);
+
+        for (int j : rfs) {
+            rafts_[j].start();
+        }
+        std::this_thread::sleep_for(MAX_ELECTION_TIMEOUT);
+    }
 
     EXPECT_EQ(findLeaders().size(), 1);
 }

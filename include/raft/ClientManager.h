@@ -12,12 +12,14 @@ class ClientManager {
 public:
     ClientManager() = default;
 
+    ClientManager(int num);
+
     RaftRPCClient* getClient(int i, RaftAddr& addr);
 
     void setInvalid(int i);
 
 private:
-    std::unordered_map<int, std::unique_ptr<RaftRPCClient>> clientsMap_;
+    std::vector<std::unique_ptr<RaftRPCClient>> clients_;
 };
 
 #endif

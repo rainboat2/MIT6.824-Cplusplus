@@ -4,6 +4,7 @@ import re
 
 curDir = os.getcwd()
 logDir = f'{curDir}/../logs'
+RAFT_NUM = 7
 
 def log_list(path):
     rs = []
@@ -14,11 +15,10 @@ def log_list(path):
         rs.append(f'{path}/{file}')
     return rs;
 
-log_objs = {
-    'raft1': log_list(f'{logDir}/raft1'),
-    'raft2': log_list(f'{logDir}/raft2'),
-    'raft3': log_list(f'{logDir}/raft3')
-}
+log_objs = {}
+for i in range(1, RAFT_NUM + 1):
+    key = f'raft{i}'
+    log_objs[key] = log_list(f'{logDir}/{key}')
 
 
 # I20230711 00:37:41.649639 11342532 raft.cpp:104] Switch to follower!
@@ -57,11 +57,9 @@ key2i = {}
 for key in log_objs.keys():
     key2i[key] = len(key2i)
 
-print(key2i) 
 with open('logs.tsv', 'w') as f:
     for log in logs:
         line = [''] * len(key2i)
         line[key2i[log.objNo]] = str(log)
         f.write('\t'.join(line))
         f.write('\n')
-        print(log)
