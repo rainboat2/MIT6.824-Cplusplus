@@ -6,11 +6,7 @@
 
 ### 整体设计
 
-<<<<<<< HEAD
-Master节点负责统筹全局，分配任务。如下为Master的整体设计，本着大道至简的原则，其对woker只提供三个函数：
-=======
 Master节点负责统筹全局，分配任务。如下为Master的整体设计，本着大道至简的原则，其对woker提供三个函数：
->>>>>>> 706695bce8fad63cbfb1b6b9951c5155656c811b
 
 ```C++
 class MasterHandler : virtual public MasterIf {
