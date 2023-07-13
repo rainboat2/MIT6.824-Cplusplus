@@ -2,6 +2,7 @@
 #include <gtest/gtest.h>
 #include <random>
 #include <vector>
+#include <sstream>
 
 #include <thrift/TOutput.h>
 #include <thrift/protocol/TBinaryProtocol.h>
@@ -122,6 +123,14 @@ TEST_F(RaftTest, SignleTest)
         client->getState(st);
         int dur = std::chrono::duration_cast<std::chrono::milliseconds>(NOW() - start).count();
         EXPECT_LT(dur, 10);
+    }
+    
+    {
+        auto start = NOW();
+        std::stringstream ss;
+        ss << st;
+        int dur = std::chrono::duration_cast<std::chrono::milliseconds>(NOW() - start).count();
+        EXPECT_LT(dur, 5);
     }
 }
 

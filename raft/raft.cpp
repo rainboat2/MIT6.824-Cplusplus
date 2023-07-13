@@ -5,6 +5,7 @@
 #include <memory>
 #include <queue>
 #include <random>
+#include <sstream>
 #include <string>
 #include <thread>
 #include <vector>
@@ -20,6 +21,7 @@
 
 #include <raft/ClientManager.h>
 #include <raft/raft.h>
+#include <tools/Timer.hpp>
 
 using namespace ::apache::thrift;
 using namespace ::apache::thrift::protocol;
@@ -29,26 +31,6 @@ using namespace ::apache::thrift::server;
 using std::string;
 using std::vector;
 using time_point = std::chrono::steady_clock::time_point;
-
-class Timer {
-public:
-    Timer(string start_msg, string end_msg)
-        : end_msg_(std::move(end_msg))
-    {
-        start_ = NOW();
-        LOG(INFO) << start_msg;
-    }
-
-    ~Timer()
-    {
-        auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(NOW() - start_);
-        LOG(INFO) << end_msg_ << " Used: " << dur.count() << "ms";
-    }
-
-private:
-    time_point start_;
-    string end_msg_;
-};
 
 RaftRPCHandler::RaftRPCHandler(vector<RaftAddr>& peers, RaftAddr me)
     : currentTerm_(0)
@@ -139,6 +121,7 @@ void RaftRPCHandler::appendEntries(AppendEntriesResult& _return, const AppendEnt
 void RaftRPCHandler::getState(RaftState& _return)
 {
     Timer t("Start getState!", "Finished getState!");
+
     std::lock_guard<std::mutex> guard(lock_);
     _return.currentTerm = currentTerm_;
     _return.votedFor = votedFor_;
@@ -146,7 +129,8 @@ void RaftRPCHandler::getState(RaftState& _return)
     _return.lastApplied = lastApplied_;
     _return.state = state_;
     _return.peers = peers_;
-    LOG(INFO) << "Get raft state: " << _return;
+    LOG(INFO) << fmt::format("Get raft state: term = {}, votedFor = {}, commitIndex = {}, lastApplied = {}, state={}",
+        currentTerm_, to_string(votedFor_), commitIndex_, lastApplied_, state_);
 }
 
 void RaftRPCHandler::switchToFollow()
