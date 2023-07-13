@@ -25,7 +25,8 @@ struct RequestVoteResult {
 
 struct LogEntry {
     1: TermId term,
-    2: string command
+    2: string command,
+    3: i32 index
 }
 
 
@@ -48,12 +49,18 @@ struct AppendEntriesResult {
  * record the state of raft server, only used for test
  */
 struct RaftState {
-    1: TermId currentTerm;
-    2: RaftAddr votedFor;
-    3: i32 commitIndex;
-    4: i32 lastApplied;
-    5: ServerState state;
-    6: list<RaftAddr> peers;
+    1: TermId currentTerm,
+    2: RaftAddr votedFor,
+    3: i32 commitIndex,
+    4: i32 lastApplied,
+    5: ServerState state,
+    6: list<RaftAddr> peers
+}
+
+struct StartResult {
+    1: i32 index,
+    2: TermId term,
+    3: bool isLeader
 }
 
 service RaftRPC {
@@ -62,4 +69,6 @@ service RaftRPC {
     AppendEntriesResult appendEntries(1: AppendEntriesParams params)
 
     RaftState getState();
+
+    StartResult start(1: string command); 
 }

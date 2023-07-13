@@ -11,8 +11,8 @@
 
 constexpr auto NOW = std::chrono::steady_clock::now;
 constexpr auto RPC_TIMEOUT = std::chrono::milliseconds(500);
-constexpr auto MIN_ELECTION_TIMEOUT = std::chrono::milliseconds(300);
-constexpr auto MAX_ELECTION_TIMEOUT = std::chrono::milliseconds(600);
+constexpr auto MIN_ELECTION_TIMEOUT = std::chrono::milliseconds(150);
+constexpr auto MAX_ELECTION_TIMEOUT = std::chrono::milliseconds(300);
 constexpr auto HEART_BEATS_INTERVAL = std::chrono::milliseconds(50);
 const RaftAddr NULL_ADDR;
 
@@ -30,6 +30,8 @@ public:
     void appendEntries(AppendEntriesResult& _return, const AppendEntriesParams& params) override;
 
     void getState(RaftState& _return) override;
+
+    void start(StartResult& _return, const std::string& command) override;
 
 private:
     void switchToFollow();
@@ -50,7 +52,7 @@ private:
     // persisten state on all servers
     TermId currentTerm_;
     RaftAddr votedFor_;
-    std::vector<LogEntry> log_;
+    std::vector<LogEntry> logs_;
 
     // volatile state on all servers
     int32_t commitIndex_;
@@ -69,11 +71,11 @@ private:
     std::atomic<bool> inElection_;
 
     /*
-     * Thrift client is thread-unsafe. Considering efficiency and safety, 
+     * Thrift client is thread-unsafe. Considering efficiency and safety,
      * for each kind of task we arrange a ClientManager.
      */
-    ClientManager cmForHB_;  // client manager for heart beats
-    ClientManager cmForRV_;  //  client manager for request vote
+    ClientManager cmForHB_; // client manager for heart beats
+    ClientManager cmForRV_; //  client manager for request vote
 };
 
 #endif

@@ -16,6 +16,7 @@ $(RAFT_LIB):
 .PHONY: clean run-test make-raft
 clean:
 	rm $(BIN)/test_raft
+	make -C $(ROOTDIR)/raft clean
 
 run-test: $(BIN)/test_raft make-raft
 	$(BIN)/test_raft $(cmd_args)
