@@ -50,7 +50,7 @@ RaftRPCHandler::RaftRPCHandler(vector<RaftAddr>& peers, RaftAddr me)
 
 void RaftRPCHandler::requestVote(RequestVoteResult& _return, const RequestVoteParams& params)
 {
-    Timer t("Start requestVote!", "Finished requestVote!");
+    // Timer t("Start requestVote!", "Finished requestVote!");
     std::lock_guard<std::mutex> guard(lock_);
 
     if (params.term > currentTerm_) {
@@ -84,7 +84,7 @@ void RaftRPCHandler::requestVote(RequestVoteResult& _return, const RequestVotePa
 
 void RaftRPCHandler::appendEntries(AppendEntriesResult& _return, const AppendEntriesParams& params)
 {
-    Timer t("Start appendEntries!", "Finished appendEntries!");
+    // Timer t("Start appendEntries!", "Finished appendEntries!");
     std::lock_guard<std::mutex> guard(lock_);
     _return.term = currentTerm_;
     if (params.term < currentTerm_) {
@@ -120,8 +120,7 @@ void RaftRPCHandler::appendEntries(AppendEntriesResult& _return, const AppendEnt
 
 void RaftRPCHandler::getState(RaftState& _return)
 {
-    Timer t("Start getState!", "Finished getState!");
-
+    // Timer t("Start getState!", "Finished getState!");
     std::lock_guard<std::mutex> guard(lock_);
     _return.currentTerm = currentTerm_;
     _return.votedFor = votedFor_;
@@ -172,19 +171,21 @@ std::chrono::microseconds RaftRPCHandler::getElectionTimeout()
     static std::uniform_int_distribution<int> randomTime(
         MIN_ELECTION_TIMEOUT.count(),
         MAX_ELECTION_TIMEOUT.count());
-    return std::chrono::milliseconds(randomTime(rd));
+    auto timeout = std::chrono::milliseconds(randomTime(rd));
+    LOG(INFO) << fmt::format("Generate random timeout: {}ms",  timeout.count());
+    return timeout;
 }
 
 void RaftRPCHandler::async_checkLeaderStatus()
 {
     while (true) {
-        std::this_thread::sleep_for(MIN_ELECTION_TIMEOUT);
+        std::this_thread::sleep_for(getElectionTimeout());
         {
             std::lock_guard<std::mutex> guard(lock_);
             switch (state_) {
             case ServerState::CANDIDAE:
             case ServerState::FOLLOWER: {
-                if (NOW() - lastSeenLeader_ > getElectionTimeout()) {
+                if (NOW() - lastSeenLeader_ > MIN_ELECTION_TIMEOUT) {
                     LOG(INFO) << "Election timeout, start a election.";
                     switchToCandidate();
                 }
