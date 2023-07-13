@@ -3,8 +3,10 @@
 [课程链接](https://pdos.csail.mit.edu/6.824/schedule.html)
 
 实现思路：
-[MapReduce](https://github.com/rainboat2/MIT6.824-Cplusplus/blob/main/MapReduce.md)
-[Raft](https://github.com/rainboat2/MIT6.824-Cplusplus/blob/main/Raft.md)
+
+1. [MapReduce](https://github.com/rainboat2/MIT6.824-Cplusplus/blob/main/MapReduce.md)
+2. [Raft](https://github.com/rainboat2/MIT6.824-Cplusplus/blob/main/Raft.md)
+
 ## 项目依赖
 
 ### MacOS
