@@ -31,6 +31,8 @@ public:
 
     void getState(RaftState& _return) override;
 
+    void start(StartResult& _return, const std::string& command) override;
+
 private:
     void switchToFollow();
 
@@ -50,7 +52,7 @@ private:
     // persisten state on all servers
     TermId currentTerm_;
     RaftAddr votedFor_;
-    std::vector<LogEntry> log_;
+    std::vector<LogEntry> logs_;
 
     // volatile state on all servers
     int32_t commitIndex_;
@@ -69,11 +71,11 @@ private:
     std::atomic<bool> inElection_;
 
     /*
-     * Thrift client is thread-unsafe. Considering efficiency and safety, 
+     * Thrift client is thread-unsafe. Considering efficiency and safety,
      * for each kind of task we arrange a ClientManager.
      */
-    ClientManager cmForHB_;  // client manager for heart beats
-    ClientManager cmForRV_;  //  client manager for request vote
+    ClientManager cmForHB_; // client manager for heart beats
+    ClientManager cmForRV_; //  client manager for request vote
 };
 
 #endif

@@ -50,7 +50,6 @@ RaftRPCHandler::RaftRPCHandler(vector<RaftAddr>& peers, RaftAddr me)
 
 void RaftRPCHandler::requestVote(RequestVoteResult& _return, const RequestVoteParams& params)
 {
-    // Timer t("Start requestVote!", "Finished requestVote!");
     std::lock_guard<std::mutex> guard(lock_);
 
     if (params.term > currentTerm_) {
@@ -76,6 +75,17 @@ void RaftRPCHandler::requestVote(RequestVoteResult& _return, const RequestVotePa
         return;
     }
 
+    if (!logs_.empty()) {
+        /*
+         * If the logs have last entries with different terms, then the log with the later term is more up-to-date. If the logs
+         * end with the same term, then whichever log is longer is more up-to-date.
+         */
+        auto lastLog = logs_.back();
+        if (lastLog.term < params.LastLogTerm || (lastLog.term == params.LastLogTerm && lastLog.index < params.lastLogIndex)) {
+            LOG(INFO) << fmt::format("Receive a vote request from {} with outdate logs, reject it.", to_string(params.candidateId));
+        }
+    }
+
     LOG(INFO) << "Vote for " << params.candidateId;
     votedFor_ = params.candidateId;
     _return.voteGranted = true;
@@ -84,7 +94,6 @@ void RaftRPCHandler::requestVote(RequestVoteResult& _return, const RequestVotePa
 
 void RaftRPCHandler::appendEntries(AppendEntriesResult& _return, const AppendEntriesParams& params)
 {
-    // Timer t("Start appendEntries!", "Finished appendEntries!");
     std::lock_guard<std::mutex> guard(lock_);
     _return.term = currentTerm_;
     if (params.term < currentTerm_) {
@@ -95,6 +104,7 @@ void RaftRPCHandler::appendEntries(AppendEntriesResult& _return, const AppendEnt
     }
 
     if (params.term == currentTerm_ && state_ != ServerState::FOLLOWER) {
+        LOG_IF(FATAL, state_ == ServerState::LEADER) << "Two leader in the same term!";
         switchToFollow();
     }
 
@@ -120,7 +130,6 @@ void RaftRPCHandler::appendEntries(AppendEntriesResult& _return, const AppendEnt
 
 void RaftRPCHandler::getState(RaftState& _return)
 {
-    // Timer t("Start getState!", "Finished getState!");
     std::lock_guard<std::mutex> guard(lock_);
     _return.currentTerm = currentTerm_;
     _return.votedFor = votedFor_;
@@ -130,6 +139,25 @@ void RaftRPCHandler::getState(RaftState& _return)
     _return.peers = peers_;
     LOG(INFO) << fmt::format("Get raft state: term = {}, votedFor = {}, commitIndex = {}, lastApplied = {}, state={}",
         currentTerm_, to_string(votedFor_), commitIndex_, lastApplied_, state_);
+}
+
+void RaftRPCHandler::start(StartResult& _return, const std::string& command)
+{
+    std::lock_guard<std::mutex> guard(lock_);
+
+    if (state_ != ServerState::LEADER) {
+        _return.isLeader = false;
+        return;
+    }
+
+    LogEntry log;
+    log.command = command;
+    log.term = currentTerm_;
+    logs_.push_back(std::move(log));
+
+    _return.index = commitIndex_ + 1;
+    _return.term = currentTerm_;
+    _return.isLeader = true;
 }
 
 void RaftRPCHandler::switchToFollow()
@@ -172,7 +200,7 @@ std::chrono::microseconds RaftRPCHandler::getElectionTimeout()
         MIN_ELECTION_TIMEOUT.count(),
         MAX_ELECTION_TIMEOUT.count());
     auto timeout = std::chrono::milliseconds(randomTime(rd));
-    LOG(INFO) << fmt::format("Generate random timeout: {}ms",  timeout.count());
+    LOG(INFO) << fmt::format("Generate random timeout: {}ms", timeout.count());
     return timeout;
 }
 

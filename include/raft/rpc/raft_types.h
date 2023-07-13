@@ -51,6 +51,8 @@ class AppendEntriesResult;
 
 class RaftState;
 
+class StartResult;
+
 typedef struct _RaftAddr__isset {
   _RaftAddr__isset() : ip(false), port(false) {}
   bool ip :1;
@@ -215,9 +217,10 @@ void swap(RequestVoteResult &a, RequestVoteResult &b);
 std::ostream& operator<<(std::ostream& out, const RequestVoteResult& obj);
 
 typedef struct _LogEntry__isset {
-  _LogEntry__isset() : term(false), command(false) {}
+  _LogEntry__isset() : term(false), command(false), index(false) {}
   bool term :1;
   bool command :1;
+  bool index :1;
 } _LogEntry__isset;
 
 class LogEntry : public virtual ::apache::thrift::TBase {
@@ -227,12 +230,14 @@ class LogEntry : public virtual ::apache::thrift::TBase {
   LogEntry& operator=(const LogEntry&);
   LogEntry() noexcept
            : term(0),
-             command() {
+             command(),
+             index(0) {
   }
 
   virtual ~LogEntry() noexcept;
   TermId term;
   std::string command;
+  int32_t index;
 
   _LogEntry__isset __isset;
 
@@ -240,11 +245,15 @@ class LogEntry : public virtual ::apache::thrift::TBase {
 
   void __set_command(const std::string& val);
 
+  void __set_index(const int32_t val);
+
   bool operator == (const LogEntry & rhs) const
   {
     if (!(term == rhs.term))
       return false;
     if (!(command == rhs.command))
+      return false;
+    if (!(index == rhs.index))
       return false;
     return true;
   }
@@ -469,6 +478,63 @@ class RaftState : public virtual ::apache::thrift::TBase {
 void swap(RaftState &a, RaftState &b);
 
 std::ostream& operator<<(std::ostream& out, const RaftState& obj);
+
+typedef struct _StartResult__isset {
+  _StartResult__isset() : index(false), term(false), isLeader(false) {}
+  bool index :1;
+  bool term :1;
+  bool isLeader :1;
+} _StartResult__isset;
+
+class StartResult : public virtual ::apache::thrift::TBase {
+ public:
+
+  StartResult(const StartResult&) noexcept;
+  StartResult& operator=(const StartResult&) noexcept;
+  StartResult() noexcept
+              : index(0),
+                term(0),
+                isLeader(0) {
+  }
+
+  virtual ~StartResult() noexcept;
+  int32_t index;
+  TermId term;
+  bool isLeader;
+
+  _StartResult__isset __isset;
+
+  void __set_index(const int32_t val);
+
+  void __set_term(const TermId val);
+
+  void __set_isLeader(const bool val);
+
+  bool operator == (const StartResult & rhs) const
+  {
+    if (!(index == rhs.index))
+      return false;
+    if (!(term == rhs.term))
+      return false;
+    if (!(isLeader == rhs.isLeader))
+      return false;
+    return true;
+  }
+  bool operator != (const StartResult &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const StartResult & ) const;
+
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(StartResult &a, StartResult &b);
+
+std::ostream& operator<<(std::ostream& out, const StartResult& obj);
 
 
 

@@ -25,6 +25,7 @@ class RaftRPCIf {
   virtual void requestVote(RequestVoteResult& _return, const RequestVoteParams& params) = 0;
   virtual void appendEntries(AppendEntriesResult& _return, const AppendEntriesParams& params) = 0;
   virtual void getState(RaftState& _return) = 0;
+  virtual void start(StartResult& _return, const std::string& command) = 0;
 };
 
 class RaftRPCIfFactory {
@@ -61,6 +62,9 @@ class RaftRPCNull : virtual public RaftRPCIf {
     return;
   }
   void getState(RaftState& /* _return */) override {
+    return;
+  }
+  void start(StartResult& /* _return */, const std::string& /* command */) override {
     return;
   }
 };
@@ -365,6 +369,111 @@ class RaftRPC_getState_presult {
 
 };
 
+typedef struct _RaftRPC_start_args__isset {
+  _RaftRPC_start_args__isset() : command(false) {}
+  bool command :1;
+} _RaftRPC_start_args__isset;
+
+class RaftRPC_start_args {
+ public:
+
+  RaftRPC_start_args(const RaftRPC_start_args&);
+  RaftRPC_start_args& operator=(const RaftRPC_start_args&);
+  RaftRPC_start_args() noexcept
+                     : command() {
+  }
+
+  virtual ~RaftRPC_start_args() noexcept;
+  std::string command;
+
+  _RaftRPC_start_args__isset __isset;
+
+  void __set_command(const std::string& val);
+
+  bool operator == (const RaftRPC_start_args & rhs) const
+  {
+    if (!(command == rhs.command))
+      return false;
+    return true;
+  }
+  bool operator != (const RaftRPC_start_args &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const RaftRPC_start_args & ) const;
+
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot);
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const;
+
+};
+
+
+class RaftRPC_start_pargs {
+ public:
+
+
+  virtual ~RaftRPC_start_pargs() noexcept;
+  const std::string* command;
+
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const;
+
+};
+
+typedef struct _RaftRPC_start_result__isset {
+  _RaftRPC_start_result__isset() : success(false) {}
+  bool success :1;
+} _RaftRPC_start_result__isset;
+
+class RaftRPC_start_result {
+ public:
+
+  RaftRPC_start_result(const RaftRPC_start_result&) noexcept;
+  RaftRPC_start_result& operator=(const RaftRPC_start_result&) noexcept;
+  RaftRPC_start_result() noexcept {
+  }
+
+  virtual ~RaftRPC_start_result() noexcept;
+  StartResult success;
+
+  _RaftRPC_start_result__isset __isset;
+
+  void __set_success(const StartResult& val);
+
+  bool operator == (const RaftRPC_start_result & rhs) const
+  {
+    if (!(success == rhs.success))
+      return false;
+    return true;
+  }
+  bool operator != (const RaftRPC_start_result &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const RaftRPC_start_result & ) const;
+
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot);
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const;
+
+};
+
+typedef struct _RaftRPC_start_presult__isset {
+  _RaftRPC_start_presult__isset() : success(false) {}
+  bool success :1;
+} _RaftRPC_start_presult__isset;
+
+class RaftRPC_start_presult {
+ public:
+
+
+  virtual ~RaftRPC_start_presult() noexcept;
+  StartResult* success;
+
+  _RaftRPC_start_presult__isset __isset;
+
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot);
+
+};
+
 class RaftRPCClient : virtual public RaftRPCIf {
  public:
   RaftRPCClient(std::shared_ptr< ::apache::thrift::protocol::TProtocol> prot) {
@@ -399,6 +508,9 @@ class RaftRPCClient : virtual public RaftRPCIf {
   void getState(RaftState& _return) override;
   void send_getState();
   void recv_getState(RaftState& _return);
+  void start(StartResult& _return, const std::string& command) override;
+  void send_start(const std::string& command);
+  void recv_start(StartResult& _return);
  protected:
   std::shared_ptr< ::apache::thrift::protocol::TProtocol> piprot_;
   std::shared_ptr< ::apache::thrift::protocol::TProtocol> poprot_;
@@ -417,12 +529,14 @@ class RaftRPCProcessor : public ::apache::thrift::TDispatchProcessor {
   void process_requestVote(int32_t seqid, ::apache::thrift::protocol::TProtocol* iprot, ::apache::thrift::protocol::TProtocol* oprot, void* callContext);
   void process_appendEntries(int32_t seqid, ::apache::thrift::protocol::TProtocol* iprot, ::apache::thrift::protocol::TProtocol* oprot, void* callContext);
   void process_getState(int32_t seqid, ::apache::thrift::protocol::TProtocol* iprot, ::apache::thrift::protocol::TProtocol* oprot, void* callContext);
+  void process_start(int32_t seqid, ::apache::thrift::protocol::TProtocol* iprot, ::apache::thrift::protocol::TProtocol* oprot, void* callContext);
  public:
   RaftRPCProcessor(::std::shared_ptr<RaftRPCIf> iface) :
     iface_(iface) {
     processMap_["requestVote"] = &RaftRPCProcessor::process_requestVote;
     processMap_["appendEntries"] = &RaftRPCProcessor::process_appendEntries;
     processMap_["getState"] = &RaftRPCProcessor::process_getState;
+    processMap_["start"] = &RaftRPCProcessor::process_start;
   }
 
   virtual ~RaftRPCProcessor() {}
@@ -481,6 +595,16 @@ class RaftRPCMultiface : virtual public RaftRPCIf {
     return;
   }
 
+  void start(StartResult& _return, const std::string& command) override {
+    size_t sz = ifaces_.size();
+    size_t i = 0;
+    for (; i < (sz - 1); ++i) {
+      ifaces_[i]->start(_return, command);
+    }
+    ifaces_[i]->start(_return, command);
+    return;
+  }
+
 };
 
 // The 'concurrent' client is a thread safe client that correctly handles
@@ -522,6 +646,9 @@ class RaftRPCConcurrentClient : virtual public RaftRPCIf {
   void getState(RaftState& _return) override;
   int32_t send_getState();
   void recv_getState(RaftState& _return, const int32_t seqid);
+  void start(StartResult& _return, const std::string& command) override;
+  int32_t send_start(const std::string& command);
+  void recv_start(StartResult& _return, const int32_t seqid);
  protected:
   std::shared_ptr< ::apache::thrift::protocol::TProtocol> piprot_;
   std::shared_ptr< ::apache::thrift::protocol::TProtocol> poprot_;
