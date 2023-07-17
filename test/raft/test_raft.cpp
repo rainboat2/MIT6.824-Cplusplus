@@ -1,8 +1,9 @@
 #include <array>
 #include <gtest/gtest.h>
 #include <random>
-#include <vector>
 #include <sstream>
+#include <string>
+#include <vector>
 
 #include <thrift/TOutput.h>
 #include <thrift/protocol/TBinaryProtocol.h>
@@ -20,6 +21,7 @@ using namespace apache::thrift::transport;
 const RaftState INVALID_RAFTSTATE;
 
 using std::array;
+using std::string;
 using std::vector;
 
 class RaftTest : public testing::Test {
@@ -27,7 +29,7 @@ protected:
     void SetUp() override
     {
         ports_ = { 7001, 7002, 7003, 7004, 7005, 7006, 7007, 7008 };
-        cm_ = ClientManager(ports_.size());
+        cm_ = ClientManager(ports_.size(), RPC_TIMEOUT);
         GlobalOutput.setOutputFunction([](const char* msg) {
             LOG(INFO) << msg;
         });
@@ -36,15 +38,15 @@ protected:
     void initRafts(int num)
     {
         EXPECT_GE(ports_.size(), num);
-        vector<RaftAddr> addrs(num);
+        addrs_ = vector<RaftAddr>(num);
         for (int i = 0; i < num; i++) {
-            addrs[i].ip = "127.0.0.1";
-            addrs[i].port = ports_[i];
+            addrs_[i].ip = "127.0.0.1";
+            addrs_[i].port = ports_[i];
         }
 
         for (int i = 0; i < num; i++) {
-            vector<RaftAddr> peers = addrs;
-            RaftAddr me = addrs[i];
+            vector<RaftAddr> peers = addrs_;
+            RaftAddr me = addrs_[i];
             peers.erase(peers.begin() + i);
             rafts_.emplace_back(peers, me, i + 1, fmt::format("../../logs/raft{}", i + 1));
         }
@@ -75,26 +77,89 @@ protected:
         return leaders;
     }
 
+    string uniqueCmd()
+    {
+        static int i = 0;
+        i++;
+        return "CMD" + std::to_string(i);
+    }
+
+    LogEntry getLog(vector<LogEntry>& logs, int logIndex)
+    {
+        int i = logIndex - logs.front().index;
+        return logs[i];
+    }
+
+    int nCommitted(int index, string& cmd)
+    {
+        int nc = 0;
+        for (int i = 0; i < rafts_.size(); i++) {
+            auto st = getState(i);
+            if (st == INVALID_RAFTSTATE || index > st.logs.back().index)
+                continue;
+
+            auto ilog = getLog(st.logs, index);
+            if (nc > 0) {
+                EXPECT_EQ(cmd, ilog.command);
+            } else {
+                cmd = ilog.command;
+            }
+
+            if (st.commitIndex >= index)
+                nc++;
+        }
+        return nc;
+    }
+
+    int one(const string& cmd, int expectedServers, bool retry)
+    {
+        int logIndex = -1;
+
+        for (int i = 0; i < 3; i++) {
+            // try all the servers, maybe one is the leader
+            for (int j = 0; j < rafts_.size(); j++) {
+                auto client = cm_.getClient(j, addrs_[j]);
+                StartResult rs;
+                client->start(rs, cmd);
+                if (rs.isLeader) {
+                    logIndex = rs.expectedLogIndex;
+                    break;
+                }
+            }
+
+            // check whether our command is submitted
+            for (int j = 0; j < 10; j++) {
+                if (logIndex != -1) {
+                    string cmd1;
+                    int nd = nCommitted(logIndex, cmd1);
+                    if (nd >= expectedServers && cmd1 == cmd) {
+                        return logIndex;
+                    }
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(HEART_BEATS_INTERVAL));
+            }
+
+            if (retry == false) {
+                break;
+            }
+        }
+        return -1;
+    }
+
     void TearDown() override
     {
-        for (int i = 0; i < transports.size(); i++)
-            transports[i]->close();
     }
 
 private:
     RaftState getState(int i)
     {
         RaftState st;
-        RaftAddr addr;
-        addr.ip = "127.0.0.1";
-        addr.port = ports_[i];
-
         try {
-            auto* client = cm_.getClient(i, addr);
+            auto* client = cm_.getClient(i, addrs_[i]);
             client->getState(st);
         } catch (TException& tx) {
             st = INVALID_RAFTSTATE;
-            LOG(WARNING) << fmt::format("Get State of {} failed! {};", to_string(addr), tx.what());
+            LOG(WARNING) << fmt::format("Get State of {} failed! {};", to_string(addrs_[i]), tx.what());
             cm_.setInvalid(i);
         }
         return st;
@@ -102,8 +167,8 @@ private:
 
 protected:
     std::vector<RaftProcess> rafts_;
-    std::vector<std::shared_ptr<TTransport>> transports;
     std::vector<int> ports_;
+    std::vector<RaftAddr> addrs_;
     ClientManager cm_;
 };
 
@@ -124,7 +189,7 @@ TEST_F(RaftTest, SignleTest)
         int dur = std::chrono::duration_cast<std::chrono::milliseconds>(NOW() - start).count();
         EXPECT_LT(dur, 10);
     }
-    
+
     {
         auto start = NOW();
         std::stringstream ss;
@@ -206,4 +271,21 @@ TEST_F(RaftTest, TestManyElections2A)
     }
 
     EXPECT_EQ(findLeaders().size(), 1);
+}
+
+TEST_F(RaftTest, TestBasicAgree2B)
+{
+    const int RAFT_NUM = 3;
+    initRafts(RAFT_NUM);
+    std::this_thread::sleep_for(MAX_ELECTION_TIMEOUT);
+
+    for (int i = 1; i <= 3; i++) {
+        string cmd = uniqueCmd();
+        int nd = nCommitted(i, cmd);
+        EXPECT_EQ(nd, 0);
+
+        int xindex = one(cmd, RAFT_NUM, false);
+        EXPECT_EQ(xindex, i);
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(16));
 }

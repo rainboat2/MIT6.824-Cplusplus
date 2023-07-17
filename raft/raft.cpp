@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
@@ -14,6 +15,7 @@
 #include <gflags/gflags.h>
 #include <glog/logging.h>
 
+#include <thrift/TToString.h>
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <thrift/server/TThreadedServer.h>
 #include <thrift/transport/TBufferTransports.h>
@@ -37,20 +39,32 @@ RaftRPCHandler::RaftRPCHandler(vector<RaftAddr>& peers, RaftAddr me)
     , votedFor_(NULL_ADDR)
     , commitIndex_(0)
     , lastApplied_(0)
+    , nextIndex_(vector<int32_t>(peers.size()))
+    , matchIndex_(vector<int32_t>(peers.size()))
     , state_(ServerState::FOLLOWER)
     , lastSeenLeader_(NOW())
     , peers_(peers)
     , me_(std::move(me))
     , inElection_(false)
-    , cmForHB_(peers.size())
-    , cmForRV_(peers.size())
+    , cmForHB_(peers.size(), HEART_BEATS_INTERVAL)
+    , cmForRV_(peers.size(), RPC_TIMEOUT)
+    , cmForAE_(peers.size(), RPC_TIMEOUT)
 {
     switchToFollow();
+    /*
+     *  We avoid dealing with the "empty logs_" situation by adding an invalid log
+     *  in which the term and index are both 0.
+     */
+    logs_.emplace_back();
+    std::thread ae([this]() {
+        this->async_sendLogEntries();
+    });
+    ae.detach();
 }
 
 void RaftRPCHandler::requestVote(RequestVoteResult& _return, const RequestVoteParams& params)
 {
-    std::lock_guard<std::mutex> guard(lock_);
+    std::lock_guard<std::mutex> guard(raftLock_);
 
     if (params.term > currentTerm_) {
         votedFor_ = NULL_ADDR;
@@ -94,12 +108,14 @@ void RaftRPCHandler::requestVote(RequestVoteResult& _return, const RequestVotePa
 
 void RaftRPCHandler::appendEntries(AppendEntriesResult& _return, const AppendEntriesParams& params)
 {
-    std::lock_guard<std::mutex> guard(lock_);
+    std::lock_guard<std::mutex> guard(raftLock_);
+
+    _return.success = false;
     _return.term = currentTerm_;
+
     if (params.term < currentTerm_) {
         LOG(INFO) << fmt::format("Out of fashion appendEntries from {}, term: {}, currentTerm: {}",
             to_string(params.leaderId), params.term, currentTerm_);
-        _return.success = false;
         return;
     }
 
@@ -117,10 +133,35 @@ void RaftRPCHandler::appendEntries(AppendEntriesResult& _return, const AppendEnt
             switchToFollow();
         }
     }
-
     lastSeenLeader_ = NOW();
+
+    if (!params.entries.empty() && params.prevLogIndex > logs_.back().index) {
+        LOG(INFO) << fmt::format("Expected older logs. prevLogIndex: {}, param.prevLogIndex: {}",
+            logs_.back().index, params.prevLogIndex);
+        return;
+    }
+
+    /*
+     * find the latest log entry where the two logs agree
+     */
+    while (params.prevLogIndex < logs_.back().index) {
+        LOG(INFO) << "Delete extra uncommitted entry: " << logs_.back();
+        logs_.pop_back();
+    }
+    if (params.prevLogIndex == logs_.back().index && params.prevLogTerm != logs_.back().term) {
+        LOG(INFO) << fmt::format("Expected log term: {}, get {}, delete it!", params.prevLogTerm, logs_.back().term);
+        logs_.pop_back();
+        return;
+    }
+
+    for (auto& entry : params.entries) {
+        logs_.push_back(entry);
+    }
+
+    commitIndex_ = std::min(params.leaderCommit, logs_.back().index);
+
     if (params.entries.empty()) {
-        LOG(INFO) << fmt::format("Received heart beats from leader {}, term: {}, currentTerm: {}",
+        LOG_EVERY_N(INFO, 10) << fmt::format("Received 10 heart beats from leader {}, term: {}, currentTerm: {}",
             to_string(params.leaderId), params.term, currentTerm_);
     } else {
         LOG(INFO) << "Received appendEntries request : " << params;
@@ -130,20 +171,26 @@ void RaftRPCHandler::appendEntries(AppendEntriesResult& _return, const AppendEnt
 
 void RaftRPCHandler::getState(RaftState& _return)
 {
-    std::lock_guard<std::mutex> guard(lock_);
+    Timer t("Start getState", "Finished get state");
+    std::lock_guard<std::mutex> guard(raftLock_);
     _return.currentTerm = currentTerm_;
     _return.votedFor = votedFor_;
     _return.commitIndex = commitIndex_;
     _return.lastApplied = lastApplied_;
     _return.state = state_;
     _return.peers = peers_;
-    LOG(INFO) << fmt::format("Get raft state: term = {}, votedFor = {}, commitIndex = {}, lastApplied = {}, state={}",
-        currentTerm_, to_string(votedFor_), commitIndex_, lastApplied_, state_);
+    LOG(INFO) << "Get State, logs_ size: " << logs_.size();
+    for (auto& log : logs_) {
+        _return.logs.push_back(log);
+    }
+    LOG(INFO) << fmt::format("Get raft state: term = {}, votedFor = {}, commitIndex = {}, lastApplied = {}, state={}, logs size={}",
+        currentTerm_, to_string(votedFor_), commitIndex_, lastApplied_, to_string(state_), _return.logs.size());
+    // LOG(INFO) << "Get raft state" << _return;
 }
 
 void RaftRPCHandler::start(StartResult& _return, const std::string& command)
 {
-    std::lock_guard<std::mutex> guard(lock_);
+    std::lock_guard<std::mutex> guard(raftLock_);
 
     if (state_ != ServerState::LEADER) {
         _return.isLeader = false;
@@ -151,13 +198,16 @@ void RaftRPCHandler::start(StartResult& _return, const std::string& command)
     }
 
     LogEntry log;
+    log.index = logs_.back().index + 1;
     log.command = command;
     log.term = currentTerm_;
     logs_.push_back(std::move(log));
 
-    _return.index = commitIndex_ + 1;
+    _return.expectedLogIndex = log.index;
     _return.term = currentTerm_;
     _return.isLeader = true;
+
+    sendEntries_.notify_one();
 }
 
 void RaftRPCHandler::switchToFollow()
@@ -191,6 +241,65 @@ void RaftRPCHandler::switchToLeader()
     });
     hb.detach();
     votedFor_ = NULL_ADDR;
+    std::fill(nextIndex_.begin(), nextIndex_.end(), logs_.back().index + 1);
+    std::fill(matchIndex_.begin(), matchIndex_.end(), 0);
+}
+
+LogEntry& RaftRPCHandler::getLogByLogIndex(int logIndex)
+{
+    int i = logIndex - logs_.front().index;
+    LOG(INFO) << fmt::format("Get log {}, which pos in logs_ is {}, logs_ size: {}", logIndex, i, logs_.size());
+    return logs_[i];
+}
+
+AppendEntriesParams RaftRPCHandler::buildAppendEntriesParams()
+{
+    AppendEntriesParams params;
+    params.term = currentTerm_;
+    params.leaderId = me_;
+    params.prevLogIndex = logs_.back().index;
+    params.prevLogTerm = logs_.back().term;
+    params.leaderCommit = commitIndex_;
+    return params;
+}
+
+void RaftRPCHandler::handleAEResultFor(int peerIndex, AppendEntriesResult& rs, int logsNum)
+{
+    int i = peerIndex;
+    if (rs.success) {
+        nextIndex_[i] += logsNum;
+        matchIndex_[i] = nextIndex_[i] - 1;
+        /*
+         * Update commitIndex_. This is a typical top k problem, since the size of matchIndex_ is tiny,
+         * to simplify the code, we handle this problem by sorting matchIndex_.
+         */
+        auto matchI = matchIndex_;
+        sort(matchI.begin(), matchI.end());
+        int agreeIndex = matchI[matchI.size() / 2];
+        if (getLogByLogIndex(agreeIndex).term == currentTerm_)
+            commitIndex_ = agreeIndex;
+    } else {
+        nextIndex_[i]--;
+    }
+}
+
+int RaftRPCHandler::gatherLogsFor(int peerIndex, AppendEntriesParams& params)
+{
+    int target = logs_.back().index;
+    LOG(INFO) << target << ',' << nextIndex_[peerIndex] << std::endl;
+    if (nextIndex_[peerIndex] > target)
+        return 0;
+
+    auto& prevLog = getLogByLogIndex(nextIndex_[peerIndex] - 1);
+    params.prevLogIndex = prevLog.index;
+    params.prevLogTerm = prevLog.term;
+
+    int logsNum = std::min(target - nextIndex_[peerIndex] + 1, MAX_LOGS_PER_REQUEST);
+    for (int j = 0; j < logsNum; j++) {
+        params.entries.push_back(getLogByLogIndex(j + nextIndex_[peerIndex]));
+    }
+
+    return logsNum;
 }
 
 std::chrono::microseconds RaftRPCHandler::getElectionTimeout()
@@ -200,16 +309,15 @@ std::chrono::microseconds RaftRPCHandler::getElectionTimeout()
         MIN_ELECTION_TIMEOUT.count(),
         MAX_ELECTION_TIMEOUT.count());
     auto timeout = std::chrono::milliseconds(randomTime(rd));
-    LOG(INFO) << fmt::format("Generate random timeout: {}ms", timeout.count());
     return timeout;
 }
 
-void RaftRPCHandler::async_checkLeaderStatus()
+void RaftRPCHandler::async_checkLeaderStatus() noexcept
 {
     while (true) {
         std::this_thread::sleep_for(getElectionTimeout());
         {
-            std::lock_guard<std::mutex> guard(lock_);
+            std::lock_guard<std::mutex> guard(raftLock_);
             switch (state_) {
             case ServerState::CANDIDAE:
             case ServerState::FOLLOWER: {
@@ -243,7 +351,7 @@ void RaftRPCHandler::async_startElection() noexcept
     vector<RaftAddr> peersForRV;
     RequestVoteParams params;
     {
-        std::lock_guard<std::mutex> guard(lock_);
+        std::lock_guard<std::mutex> guard(raftLock_);
         LOG(INFO) << fmt::format("Start a new election! currentTerm: {}, nextTerm: {}", currentTerm_, currentTerm_ + 1);
         currentTerm_++;
         votedFor_ = me_;
@@ -254,13 +362,13 @@ void RaftRPCHandler::async_startElection() noexcept
          */
         lastSeenLeader_ = NOW();
 
-        // copy peers_ to a local variable to avoid aquire and release lock_ frequently
+        // copy peers_ to a local variable to avoid aquire and release raftLock_ frequently
         peersForRV = peers_;
 
         params.term = currentTerm_;
         params.candidateId = me_;
-        params.lastLogIndex = (logs_.empty()? -1 : logs_.back().index);
-        params.LastLogTerm = (logs_.empty()? -1 : logs_.back().term);
+        params.lastLogIndex = logs_.back().index;
+        params.LastLogTerm = logs_.back().term;
     }
 
     std::atomic<int> voteCnt(1);
@@ -296,7 +404,7 @@ void RaftRPCHandler::async_startElection() noexcept
 
     LOG(INFO) << fmt::format("Raft nums: {}, get votes: {}", raftNum, voteCnt.load());
     if (voteCnt > raftNum / 2) {
-        std::lock_guard<std::mutex> guard(lock_);
+        std::lock_guard<std::mutex> guard(raftLock_);
         if (state_ == ServerState::CANDIDAE)
             switchToLeader();
         else
@@ -308,53 +416,125 @@ void RaftRPCHandler::async_startElection() noexcept
     inElection_ = false;
 }
 
-void RaftRPCHandler::async_sendHeartBeats()
+void RaftRPCHandler::async_sendHeartBeats() noexcept
 {
     /*
-     * copy peers_ to a local variable, so we don't need to aquire and release lock_ frequently
+     * copy peers_ to a local variable, so we don't need to aquire and release raftLock_ frequently
      * to access peers_
      */
     vector<RaftAddr> peersForHB;
     {
-        std::lock_guard<std::mutex> guard(lock_);
+        std::lock_guard<std::mutex> guard(raftLock_);
         peersForHB = peers_;
     }
 
     while (true) {
+        AppendEntriesParams params;
         {
-            std::lock_guard<std::mutex> guard(lock_);
+            std::lock_guard<std::mutex> guard(raftLock_);
             if (state_ != ServerState::LEADER)
                 return;
+            params = buildAppendEntriesParams();
         }
 
-        vector<std::thread> threads(peers_.size());
-        for (int i = 0; i < peers_.size(); i++) {
-            threads[i] = std::thread([i, &peersForHB, this]() {
+        auto startNext = NOW() + HEART_BEATS_INTERVAL;
+        vector<std::thread> threads(peersForHB.size());
+        for (int i = 0; i < peersForHB.size(); i++) {
+            threads[i] = std::thread([i, &peersForHB, &params, this]() {
                 RaftAddr addr;
-                AppendEntriesParams params;
-                params.term = currentTerm_;
-                params.leaderId = me_;
                 try {
                     RaftRPCClient* client;
                     addr = peersForHB[i];
                     client = cmForHB_.getClient(i, addr);
 
-                    auto app_start = NOW();
                     AppendEntriesResult rs;
                     client->appendEntries(rs, params);
-                    LOG_EVERY_N(INFO, 1) << fmt::format("Send 1 heart beats to {}, used: {}ms",
-                        to_string(addr), std::chrono::duration_cast<std::chrono::milliseconds>(NOW() - app_start).count());
                 } catch (TException& tx) {
-                    LOG_EVERY_N(ERROR, 1) << fmt::format("Send 1 heart beats to {} failed: {}", to_string(addr), tx.what());
+                    LOG(ERROR) << fmt::format("Send 1 heart beats to {} failed: {}", to_string(addr), tx.what());
                     cmForHB_.setInvalid(i);
                 }
             });
         }
 
-        for (int i = 0; i < peers_.size(); i++) {
-            threads[i].detach();
+        for (int i = 0; i < peersForHB.size(); i++) {
+            threads[i].join();
+        }
+        LOG_EVERY_N(INFO, 10) << fmt::format("Broadcast 10 heart beats");
+
+        std::this_thread::sleep_until(startNext);
+    }
+}
+
+void RaftRPCHandler::async_sendLogEntries() noexcept
+{
+    while (true) {
+        vector<RaftAddr> peersForAE;
+        {
+            /*
+             * wait for RaftRPCHandler::start function to notify
+             */
+            std::unique_lock<std::mutex> logLock(raftLock_);
+            sendEntries_.wait(logLock);
+            LOG(INFO) << "async_sendLogEntries is notified";
+            peersForAE = peers_;
+            logLock.unlock();
         }
 
-        std::this_thread::sleep_for(HEART_BEATS_INTERVAL);
+        bool finish = false;
+        while (!finish) {
+            {
+                std::lock_guard<std::mutex> guard(raftLock_);
+                if (state_ != ServerState::LEADER)
+                    break;
+            }
+            LOG(INFO) << "Start to send logs to all peers. peers size: " << peersForAE.size();
+            vector<std::thread> threads(peersForAE.size());
+            for (int i = 0; i < peersForAE.size(); i++) {
+                threads[i] = std::thread([i, this, &peersForAE]() {
+                    AppendEntriesParams params;
+                    int logsNum;
+                    {
+                        std::lock_guard<std::mutex> guard(raftLock_);
+                        params = buildAppendEntriesParams();
+                        logsNum = gatherLogsFor(i, params);
+                    }
+
+                    if (logsNum == 0) {
+                        LOG(INFO) << "No logs need to send to: " << peersForAE[i];
+                        return;
+                    }
+
+                    AppendEntriesResult rs;
+                    try {
+                        auto* client_ = cmForAE_.getClient(i, peersForAE[i]);
+                        client_->appendEntries(rs, params);
+                        LOG(INFO) << fmt::format("Send {} logs to {}, the result is: ", logsNum, to_string(peersForAE[i])) << rs;
+                    } catch (TException& tx) {
+                        cmForAE_.setInvalid(i);
+                        LOG(INFO) << fmt::format("Send logs to {} failed: ", to_string(peersForAE[i]), tx.what());
+                        return;
+                    }
+
+                    {
+                        std::lock_guard<std::mutex> guard(raftLock_);
+                        handleAEResultFor(i, rs, logsNum);
+                    }
+                });
+            }
+
+            for (int i = 0; i < peersForAE.size(); i++) {
+                threads[i].join();
+            }
+
+            {
+                std::lock_guard<std::mutex> guard(raftLock_);
+                /*
+                 * Exit this loop if we send all logs successfully
+                 */
+                finish = std::all_of(matchIndex_.begin(), matchIndex_.end(), [this](int index) {
+                    return logs_.back().index == index;
+                });
+            }
+        }
     }
 }

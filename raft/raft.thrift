@@ -54,11 +54,12 @@ struct RaftState {
     3: i32 commitIndex,
     4: i32 lastApplied,
     5: ServerState state,
-    6: list<RaftAddr> peers
+    6: list<RaftAddr> peers,
+    7: list<LogEntry> logs
 }
 
 struct StartResult {
-    1: i32 index,
+    1: i32 expectedLogIndex,
     2: TermId term,
     3: bool isLeader
 }

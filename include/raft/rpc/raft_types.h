@@ -400,13 +400,14 @@ void swap(AppendEntriesResult &a, AppendEntriesResult &b);
 std::ostream& operator<<(std::ostream& out, const AppendEntriesResult& obj);
 
 typedef struct _RaftState__isset {
-  _RaftState__isset() : currentTerm(false), votedFor(false), commitIndex(false), lastApplied(false), state(false), peers(false) {}
+  _RaftState__isset() : currentTerm(false), votedFor(false), commitIndex(false), lastApplied(false), state(false), peers(false), logs(false) {}
   bool currentTerm :1;
   bool votedFor :1;
   bool commitIndex :1;
   bool lastApplied :1;
   bool state :1;
   bool peers :1;
+  bool logs :1;
 } _RaftState__isset;
 
 class RaftState : public virtual ::apache::thrift::TBase {
@@ -432,6 +433,7 @@ class RaftState : public virtual ::apache::thrift::TBase {
    */
   ServerState::type state;
   std::vector<RaftAddr>  peers;
+  std::vector<LogEntry>  logs;
 
   _RaftState__isset __isset;
 
@@ -447,6 +449,8 @@ class RaftState : public virtual ::apache::thrift::TBase {
 
   void __set_peers(const std::vector<RaftAddr> & val);
 
+  void __set_logs(const std::vector<LogEntry> & val);
+
   bool operator == (const RaftState & rhs) const
   {
     if (!(currentTerm == rhs.currentTerm))
@@ -460,6 +464,8 @@ class RaftState : public virtual ::apache::thrift::TBase {
     if (!(state == rhs.state))
       return false;
     if (!(peers == rhs.peers))
+      return false;
+    if (!(logs == rhs.logs))
       return false;
     return true;
   }
@@ -480,8 +486,8 @@ void swap(RaftState &a, RaftState &b);
 std::ostream& operator<<(std::ostream& out, const RaftState& obj);
 
 typedef struct _StartResult__isset {
-  _StartResult__isset() : index(false), term(false), isLeader(false) {}
-  bool index :1;
+  _StartResult__isset() : expectedLogIndex(false), term(false), isLeader(false) {}
+  bool expectedLogIndex :1;
   bool term :1;
   bool isLeader :1;
 } _StartResult__isset;
@@ -492,19 +498,19 @@ class StartResult : public virtual ::apache::thrift::TBase {
   StartResult(const StartResult&) noexcept;
   StartResult& operator=(const StartResult&) noexcept;
   StartResult() noexcept
-              : index(0),
+              : expectedLogIndex(0),
                 term(0),
                 isLeader(0) {
   }
 
   virtual ~StartResult() noexcept;
-  int32_t index;
+  int32_t expectedLogIndex;
   TermId term;
   bool isLeader;
 
   _StartResult__isset __isset;
 
-  void __set_index(const int32_t val);
+  void __set_expectedLogIndex(const int32_t val);
 
   void __set_term(const TermId val);
 
@@ -512,7 +518,7 @@ class StartResult : public virtual ::apache::thrift::TBase {
 
   bool operator == (const StartResult & rhs) const
   {
-    if (!(index == rhs.index))
+    if (!(expectedLogIndex == rhs.expectedLogIndex))
       return false;
     if (!(term == rhs.term))
       return false;
