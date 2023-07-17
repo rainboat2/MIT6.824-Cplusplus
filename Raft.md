@@ -135,3 +135,31 @@ while (true) {
 
 ```
 
+
+
+## 日志同步
+
+
+
+## 实现过程中碰到的问题
+
+1. raft进程随机奔溃的问题，特别是在之前运行了一大堆测试代码或者电脑没有插电源的情况。分析：leader会为每个follower维护一个nextIndex，用于指向下一条需要向子节点传输的日志。如果发送的日志过于超前，就会将nextIndex对应的位置减1。
+
+```c++
+AppendEntriesResult rs;
+try {
+    auto* client_ = cmForAE_.getClient(i, peersForAE[i]);
+    client_->appendEntries(rs, params);
+    LOG(INFO) << fmt::format("Send {} logs to {}, the result is: ", logsNum, to_string(peersForAE[i])) << rs;
+} catch (TException& tx) {
+    cmForAE_.setInvalid(i);
+    LOG(INFO) << fmt::format("Send logs to {} failed: ", to_string(peersForAE[i]), tx.what());
+    return;    // 没有加这个return，导致将通讯出错的情况当作follower拒绝日志的逻辑处理，从而导致nextIndex里对应的位置被减成负数，出现访问空指针的情况
+}
+
+{
+    std::lock_guard<std::mutex> guard(raftLock_);
+    handleAEResultFor(i, rs, logsNum);
+}Ï
+```
+

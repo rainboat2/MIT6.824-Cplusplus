@@ -277,7 +277,6 @@ TEST_F(RaftTest, TestBasicAgree2B)
 {
     const int RAFT_NUM = 3;
     initRafts(RAFT_NUM);
-    std::this_thread::sleep_for(MAX_ELECTION_TIMEOUT);
 
     for (int i = 1; i <= 3; i++) {
         string cmd = uniqueCmd();
@@ -288,4 +287,48 @@ TEST_F(RaftTest, TestBasicAgree2B)
         EXPECT_EQ(xindex, i);
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(16));
+}
+
+TEST_F(RaftTest, TestFollowerFailure2B)
+{
+    const int RAFT_NUM = 3;
+    initRafts(RAFT_NUM);
+    int logIndex = 0;
+
+    string cmd = uniqueCmd();
+    int xindex = one(cmd, RAFT_NUM, false);
+    EXPECT_EQ(xindex, ++logIndex);
+
+    auto leaders = findLeaders();
+    EXPECT_EQ(leaders.size(), 1);
+    int leader1 = leaders.front();
+    rafts_[(leader1 + 1) % RAFT_NUM].killRaft();
+
+    cmd = uniqueCmd();
+    xindex = one(cmd, RAFT_NUM - 1, false);
+    EXPECT_EQ(xindex, ++logIndex);
+
+    std::this_thread::sleep_for(MAX_ELECTION_TIMEOUT);
+
+    cmd = uniqueCmd();
+    xindex = one(cmd, RAFT_NUM - 1, false);
+    EXPECT_EQ(xindex, ++logIndex);
+
+    leaders = findLeaders();
+    EXPECT_EQ(leaders.size(), 1);
+    int leader2 = leaders.front();
+    rafts_[(leader2 + 1) % RAFT_NUM].killRaft();
+    rafts_[(leader2 + 2) % RAFT_NUM].killRaft();
+
+    auto* client = cm_.getClient(leader2, addrs_[leader2]);
+    cmd = uniqueCmd();
+    StartResult rs;
+    client->start(rs, cmd);
+    EXPECT_TRUE(rs.isLeader);
+    EXPECT_EQ(rs.expectedLogIndex, ++logIndex);
+
+    std::this_thread::sleep_for(MAX_ELECTION_TIMEOUT);
+
+    int n = nCommitted(rs.expectedLogIndex, cmd);
+    EXPECT_EQ(n, 0);
 }
