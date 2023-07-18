@@ -162,10 +162,11 @@ void RaftRPCHandler::appendEntries(AppendEntriesResult& _return, const AppendEnt
     commitIndex_ = std::min(params.leaderCommit, logs_.back().index);
 
     if (params.entries.empty()) {
-        LOG_EVERY_N(INFO, 10) << fmt::format("Received 10 heart beats from leader {}, term: {}, currentTerm: {}",
-            to_string(params.leaderId), params.term, currentTerm_);
+        LOG_EVERY_N(INFO, HEART_BEATS_LOG_COUNT)
+            << fmt::format("Received {} heart beats from leader {}, term: {}, currentTerm: {}",
+                   HEART_BEATS_LOG_COUNT, to_string(params.leaderId), params.term, currentTerm_);
     } else {
-        LOG(INFO) << "Received appendEntries request : " << params;
+        LOG(INFO) << "Received appendEntries request!";
     }
     _return.success = true;
 }
@@ -450,7 +451,8 @@ void RaftRPCHandler::async_sendHeartBeats() noexcept
                     AppendEntriesResult rs;
                     client->appendEntries(rs, params);
                 } catch (TException& tx) {
-                    LOG_EVERY_N(ERROR, 10) << fmt::format("Send 10 heart beats to {} failed: {}", to_string(addr), tx.what());
+                    LOG_EVERY_N(ERROR, HEART_BEATS_LOG_COUNT) << fmt::format("Send {} heart beats to {} failed: {}",
+                        HEART_BEATS_LOG_COUNT, to_string(addr), tx.what());
                     cmForHB_.setInvalid(i);
                 }
             });
@@ -459,7 +461,7 @@ void RaftRPCHandler::async_sendHeartBeats() noexcept
         for (int i = 0; i < peersForHB.size(); i++) {
             threads[i].join();
         }
-        LOG_EVERY_N(INFO, 10) << fmt::format("Broadcast 10 heart beats");
+        LOG_EVERY_N(INFO, HEART_BEATS_LOG_COUNT) << fmt::format("Broadcast {} heart beats", HEART_BEATS_LOG_COUNT);
 
         std::this_thread::sleep_until(startNext);
     }

@@ -17,6 +17,7 @@ constexpr auto MAX_ELECTION_TIMEOUT = std::chrono::milliseconds(300);
 constexpr auto HEART_BEATS_INTERVAL = std::chrono::milliseconds(50);
 constexpr auto RPC_TIMEOUT = std::chrono::milliseconds(250);
 constexpr int MAX_LOGS_PER_REQUEST = 20;
+constexpr int HEART_BEATS_LOG_COUNT = 1;
 const RaftAddr NULL_ADDR;
 
 inline std::string to_string(const RaftAddr& addr)

@@ -11,6 +11,8 @@ def log_list(path):
     for file in os.listdir(path):
         if file.find("INFO") == -1 or file.endswith("INFO"):
             continue
+        # if not file.endswith("INFO"):
+        #     continue
         
         rs.append(f'{path}/{file}')
     return rs;

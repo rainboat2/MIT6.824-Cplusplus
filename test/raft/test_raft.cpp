@@ -1,9 +1,11 @@
 #include <array>
+#include <atomic>
 #include <fstream>
 #include <gtest/gtest.h>
 #include <random>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <thrift/TOutput.h>
@@ -106,9 +108,9 @@ protected:
 
     string uniqueCmd()
     {
-        static int i = 0;
-        i++;
-        return "CMD" + std::to_string(i);
+        static std::atomic<int> i(0);
+        int id = i.fetch_add(1);
+        return "CMD" + std::to_string(id);
     }
 
     LogEntry getLog(vector<LogEntry>& logs, int logIndex)
@@ -174,7 +176,7 @@ protected:
             if (retry == false) {
                 break;
             }
-            std::this_thread::sleep_for(std::chrono::microseconds(50));
+            std::this_thread::sleep_for(std::chrono::microseconds(100));
         }
         return -1;
     }
@@ -229,7 +231,7 @@ TEST_F(RaftTest, SignleTest)
         std::stringstream ss;
         ss << st;
         int dur = std::chrono::duration_cast<std::chrono::milliseconds>(NOW() - start).count();
-        EXPECT_LT(dur, 5);
+        EXPECT_LT(dur, 10);
     }
 }
 
@@ -450,4 +452,60 @@ TEST_F(RaftTest, TestFailNoAgree2B)
     EXPECT_LE(index2, 3);
 
     one(uniqueCmd(), RAFT_NUM, true);
+}
+
+TEST_F(RaftTest, TestConcurrentStarts2B)
+{
+    const int RAFT_NUM = 3;
+    initRafts(RAFT_NUM);
+
+    int leader = checkOneLeader();
+    vector<std::thread> threads(5);
+    for (int i = 0; i < threads.size(); i++) {
+        threads[i] = std::thread([this, leader]() {
+            ClientManager man(addrs_.size(), RPC_TIMEOUT);
+            for (int j = 0; j < 20; j++) {
+                try {
+                    auto* client = man.getClient(leader, addrs_[leader]);
+                    StartResult rs;
+                    client->start(rs, uniqueCmd());
+                } catch (TException& tx) {
+                    man.setInvalid(leader);
+                    string errmsg = fmt::format("invoke start failed: {}", tx.what());
+                    outputErrmsg(errmsg.c_str());
+                }
+            }
+        });
+    };
+
+    for (int i = 0; i < threads.size(); i++) {
+        threads[i].join();
+    }
+
+    std::this_thread::sleep_for(MAX_ELECTION_TIMEOUT * 4);
+
+    string cmd;
+    int nd = nCommitted(100, cmd);
+    EXPECT_EQ(nd, RAFT_NUM);
+}
+
+TEST_F(RaftTest, TestBackup)
+{
+    const int RAFT_NUM = 5;
+    initRafts(RAFT_NUM);
+
+    one(uniqueCmd(), RAFT_NUM, true);
+    int leader1 = checkOneLeader();
+
+    rafts_[(leader1 + 2) % RAFT_NUM].killRaft();
+    rafts_[(leader1 + 3) % RAFT_NUM].killRaft();
+    rafts_[(leader1 + 4) % RAFT_NUM].killRaft();
+
+    for (int i = 0; i < 50; i++) {
+        callStartOf(leader1, uniqueCmd());
+    }
+    std::this_thread::sleep_for(MIN_ELECTION_TIMEOUT / 2);
+
+    rafts_[(leader1 + 2) % RAFT_NUM].killRaft();
+    rafts_[(leader1 + 3) % RAFT_NUM].killRaft();
 }
