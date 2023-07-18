@@ -11,3 +11,6 @@ do
     rm -f $logDir/raft$i/*
     lsof -i:700$i -t | xargs kill -9
 done
+
+mkdir -p $logDir/test_raft
+rm -f $logDir/test_raft/*

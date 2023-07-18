@@ -171,7 +171,7 @@ void RaftRPCHandler::appendEntries(AppendEntriesResult& _return, const AppendEnt
 
 void RaftRPCHandler::getState(RaftState& _return)
 {
-    Timer t("Start getState", "Finished get state");
+    // Timer t("Start getState", "Finished get state");
     std::lock_guard<std::mutex> guard(raftLock_);
     _return.currentTerm = currentTerm_;
     _return.votedFor = votedFor_;
@@ -179,7 +179,6 @@ void RaftRPCHandler::getState(RaftState& _return)
     _return.lastApplied = lastApplied_;
     _return.state = state_;
     _return.peers = peers_;
-    LOG(INFO) << "Get State, logs_ size: " << logs_.size();
     for (auto& log : logs_) {
         _return.logs.push_back(log);
     }
@@ -208,6 +207,7 @@ void RaftRPCHandler::start(StartResult& _return, const std::string& command)
     _return.isLeader = true;
 
     sendEntries_.notify_one();
+    LOG(INFO) << "start to synchronization cmd: " << command;
 }
 
 void RaftRPCHandler::switchToFollow()
@@ -248,7 +248,6 @@ void RaftRPCHandler::switchToLeader()
 LogEntry& RaftRPCHandler::getLogByLogIndex(int logIndex)
 {
     int i = logIndex - logs_.front().index;
-    LOG(INFO) << fmt::format("Get log {}, which pos in logs_ is {}, logs_ size: {}", logIndex, i, logs_.size());
     return logs_[i];
 }
 
@@ -274,6 +273,7 @@ void RaftRPCHandler::handleAEResultFor(int peerIndex, AppendEntriesResult& rs, i
          * to simplify the code, we handle this problem by sorting matchIndex_.
          */
         auto matchI = matchIndex_;
+        matchI.push_back(logs_.back().index);
         sort(matchI.begin(), matchI.end());
         int agreeIndex = matchI[matchI.size() / 2];
         if (getLogByLogIndex(agreeIndex).term == currentTerm_)
@@ -286,7 +286,6 @@ void RaftRPCHandler::handleAEResultFor(int peerIndex, AppendEntriesResult& rs, i
 int RaftRPCHandler::gatherLogsFor(int peerIndex, AppendEntriesParams& params)
 {
     int target = logs_.back().index;
-    LOG(INFO) << target << ',' << nextIndex_[peerIndex] << std::endl;
     if (nextIndex_[peerIndex] > target)
         return 0;
 
@@ -450,7 +449,7 @@ void RaftRPCHandler::async_sendHeartBeats() noexcept
                     AppendEntriesResult rs;
                     client->appendEntries(rs, params);
                 } catch (TException& tx) {
-                    LOG(ERROR) << fmt::format("Send 1 heart beats to {} failed: {}", to_string(addr), tx.what());
+                    LOG_EVERY_N(ERROR, 10) << fmt::format("Send 10 heart beats to {} failed: {}", to_string(addr), tx.what());
                     cmForHB_.setInvalid(i);
                 }
             });

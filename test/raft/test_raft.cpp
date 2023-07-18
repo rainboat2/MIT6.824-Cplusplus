@@ -1,4 +1,5 @@
 #include <array>
+#include <fstream>
 #include <gtest/gtest.h>
 #include <random>
 #include <sstream>
@@ -24,14 +25,17 @@ using std::array;
 using std::string;
 using std::vector;
 
+vector<string> errMsg;
+
 class RaftTest : public testing::Test {
 protected:
     void SetUp() override
     {
         ports_ = { 7001, 7002, 7003, 7004, 7005, 7006, 7007, 7008 };
         cm_ = ClientManager(ports_.size(), RPC_TIMEOUT);
+        errMsg.clear();
         GlobalOutput.setOutputFunction([](const char* msg) {
-            LOG(INFO) << msg;
+            errMsg.push_back(msg);
         });
     }
 
@@ -118,9 +122,15 @@ protected:
         for (int i = 0; i < 3; i++) {
             // try all the servers, maybe one is the leader
             for (int j = 0; j < rafts_.size(); j++) {
-                auto client = cm_.getClient(j, addrs_[j]);
                 StartResult rs;
-                client->start(rs, cmd);
+                try {
+                    auto client = cm_.getClient(j, addrs_[j]);
+                    client->start(rs, cmd);
+                } catch (TException& tx) {
+                    cm_.setInvalid(j);
+                    errMsg.push_back(tx.what());
+                }
+
                 if (rs.isLeader) {
                     logIndex = rs.expectedLogIndex;
                     break;
@@ -142,12 +152,18 @@ protected:
             if (retry == false) {
                 break;
             }
+            std::this_thread::sleep_for(std::chrono::microseconds(50));
         }
         return -1;
     }
 
     void TearDown() override
     {
+        std::ofstream ofs("../../logs/test_raft/errmsg.txt", std::ios::app);
+        for (auto& msg : errMsg) {
+            ofs << msg << '\n';
+        }
+        ofs.flush();
     }
 
 private:
@@ -159,7 +175,7 @@ private:
             client->getState(st);
         } catch (TException& tx) {
             st = INVALID_RAFTSTATE;
-            LOG(WARNING) << fmt::format("Get State of {} failed! {};", to_string(addrs_[i]), tx.what());
+            errMsg.push_back(fmt::format("Get State of {} failed! {};", to_string(addrs_[i]), tx.what()));
             cm_.setInvalid(i);
         }
         return st;
@@ -320,10 +336,15 @@ TEST_F(RaftTest, TestFollowerFailure2B)
     rafts_[(leader2 + 1) % RAFT_NUM].killRaft();
     rafts_[(leader2 + 2) % RAFT_NUM].killRaft();
 
-    auto* client = cm_.getClient(leader2, addrs_[leader2]);
     cmd = uniqueCmd();
     StartResult rs;
-    client->start(rs, cmd);
+    try {
+        auto* client = cm_.getClient(leader2, addrs_[leader2]);
+        client->start(rs, cmd);
+    } catch (TException& tx) {
+        LOG(INFO) << tx.what();
+        cm_.setInvalid(leader2);
+    }
     EXPECT_TRUE(rs.isLeader);
     EXPECT_EQ(rs.expectedLogIndex, ++logIndex);
 
@@ -331,4 +352,33 @@ TEST_F(RaftTest, TestFollowerFailure2B)
 
     int n = nCommitted(rs.expectedLogIndex, cmd);
     EXPECT_EQ(n, 0);
+}
+
+TEST_F(RaftTest, TestLeaderFailure2B)
+{
+    const int RAFT_NUM = 3;
+    initRafts(RAFT_NUM);
+
+    string cmd = uniqueCmd();
+    int xindex = one(cmd, RAFT_NUM, false);
+    int logIndex = 0;
+
+    EXPECT_EQ(xindex, ++logIndex);
+
+    auto leaders = findLeaders();
+    EXPECT_EQ(leaders.size(), 1);
+    auto leader = leaders.front();
+
+    rafts_[leader].killRaft();
+    std::this_thread::sleep_for(MAX_ELECTION_TIMEOUT * 2);
+
+    cmd = uniqueCmd();
+    xindex = one(cmd, RAFT_NUM - 1, false);
+    EXPECT_EQ(xindex, ++logIndex);
+
+    std::this_thread::sleep_for(MAX_ELECTION_TIMEOUT);
+
+    cmd = uniqueCmd();
+    xindex = one(cmd, RAFT_NUM - 1, false);
+    EXPECT_EQ(xindex, ++logIndex);
 }
