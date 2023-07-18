@@ -145,7 +145,8 @@ void RaftRPCHandler::appendEntries(AppendEntriesResult& _return, const AppendEnt
      * find the latest log entry where the two logs agree
      */
     while (params.prevLogIndex < logs_.back().index) {
-        LOG(INFO) << "Delete extra uncommitted entry: " << logs_.back();
+        LOG(INFO) << "Delete extra uncommitted entry: " << logs_.back() << ", "
+                  << fmt::format("pervLog(term: {}, index: {})", params.prevLogTerm, params.prevLogIndex);
         logs_.pop_back();
     }
     if (params.prevLogIndex == logs_.back().index && params.prevLogTerm != logs_.back().term) {

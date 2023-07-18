@@ -25,7 +25,13 @@ using std::array;
 using std::string;
 using std::vector;
 
-vector<string> errMsg;
+static void outputErrmsg(const char* msg)
+{
+    static std::ofstream ofs("../../logs/test_raft/errmsg.txt", std::ios::app);
+    static std::mutex m;
+    std::lock_guard<std::mutex> guard(m);
+    ofs << msg << std::endl;
+}
 
 class RaftTest : public testing::Test {
 protected:
@@ -33,10 +39,7 @@ protected:
     {
         ports_ = { 7001, 7002, 7003, 7004, 7005, 7006, 7007, 7008 };
         cm_ = ClientManager(ports_.size(), RPC_TIMEOUT);
-        errMsg.clear();
-        GlobalOutput.setOutputFunction([](const char* msg) {
-            errMsg.push_back(msg);
-        });
+        GlobalOutput.setOutputFunction(outputErrmsg);
     }
 
     void initRafts(int num)
@@ -81,6 +84,13 @@ protected:
         return leaders;
     }
 
+    int checkOneLeader()
+    {
+        auto leaders = findLeaders();
+        EXPECT_EQ(leaders.size(), 1);
+        return leaders.front();
+    }
+
     string uniqueCmd()
     {
         static int i = 0;
@@ -115,6 +125,12 @@ protected:
         return nc;
     }
 
+    int one(string&& cmd, int expectedServers, bool retry)
+    {
+        string cmd1 = cmd;
+        return one(cmd1, expectedServers, retry);
+    }
+
     int one(const string& cmd, int expectedServers, bool retry)
     {
         int logIndex = -1;
@@ -128,7 +144,7 @@ protected:
                     client->start(rs, cmd);
                 } catch (TException& tx) {
                     cm_.setInvalid(j);
-                    errMsg.push_back(tx.what());
+                    outputErrmsg(tx.what());
                 }
 
                 if (rs.isLeader) {
@@ -159,11 +175,6 @@ protected:
 
     void TearDown() override
     {
-        std::ofstream ofs("../../logs/test_raft/errmsg.txt", std::ios::app);
-        for (auto& msg : errMsg) {
-            ofs << msg << '\n';
-        }
-        ofs.flush();
     }
 
 private:
@@ -175,7 +186,8 @@ private:
             client->getState(st);
         } catch (TException& tx) {
             st = INVALID_RAFTSTATE;
-            errMsg.push_back(fmt::format("Get State of {} failed! {};", to_string(addrs_[i]), tx.what()));
+            auto err = fmt::format("Get State of {} failed! {};", to_string(addrs_[i]), tx.what());
+            outputErrmsg(err.c_str());
             cm_.setInvalid(i);
         }
         return st;
@@ -381,4 +393,30 @@ TEST_F(RaftTest, TestLeaderFailure2B)
     cmd = uniqueCmd();
     xindex = one(cmd, RAFT_NUM - 1, false);
     EXPECT_EQ(xindex, ++logIndex);
+}
+
+/*
+ * test that a follower participates after
+ * disconnect and re-connect.
+ */
+TEST_F(RaftTest, TestFailAgree2B)
+{
+    const int RAFT_NUM = 3;
+    initRafts(RAFT_NUM);
+
+    one(uniqueCmd(), RAFT_NUM, false);
+    int leader = checkOneLeader();
+    rafts_[(leader + 1) % RAFT_NUM].killRaft();
+
+    one(uniqueCmd(), RAFT_NUM - 1, false);
+    one(uniqueCmd(), RAFT_NUM - 1, false);
+    std::this_thread::sleep_for(MAX_ELECTION_TIMEOUT);
+    one(uniqueCmd(), RAFT_NUM - 1, false);
+    one(uniqueCmd(), RAFT_NUM - 1, false);
+
+    rafts_[(leader + 1) % RAFT_NUM].start();
+
+    one(uniqueCmd(), RAFT_NUM - 1, false);
+    std::this_thread::sleep_for(MAX_ELECTION_TIMEOUT);
+    one(uniqueCmd(), RAFT_NUM - 1, false);
 }
