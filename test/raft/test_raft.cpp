@@ -91,6 +91,19 @@ protected:
         return leaders.front();
     }
 
+    StartResult callStartOf(int raftId, string cmd)
+    {
+        StartResult rs;
+        try {
+            auto* client = cm_.getClient(raftId, addrs_[raftId]);
+            client->start(rs, cmd);
+        } catch (TException& tx) {
+            cm_.setInvalid(raftId);
+            outputErrmsg(tx.what());
+        }
+        return rs;
+    }
+
     string uniqueCmd()
     {
         static int i = 0;
@@ -138,14 +151,7 @@ protected:
         for (int i = 0; i < 3; i++) {
             // try all the servers, maybe one is the leader
             for (int j = 0; j < rafts_.size(); j++) {
-                StartResult rs;
-                try {
-                    auto client = cm_.getClient(j, addrs_[j]);
-                    client->start(rs, cmd);
-                } catch (TException& tx) {
-                    cm_.setInvalid(j);
-                    outputErrmsg(tx.what());
-                }
+                StartResult rs = callStartOf(j, cmd);
 
                 if (rs.isLeader) {
                     logIndex = rs.expectedLogIndex;
@@ -349,14 +355,7 @@ TEST_F(RaftTest, TestFollowerFailure2B)
     rafts_[(leader2 + 2) % RAFT_NUM].killRaft();
 
     cmd = uniqueCmd();
-    StartResult rs;
-    try {
-        auto* client = cm_.getClient(leader2, addrs_[leader2]);
-        client->start(rs, cmd);
-    } catch (TException& tx) {
-        LOG(INFO) << tx.what();
-        cm_.setInvalid(leader2);
-    }
+    StartResult rs = callStartOf(leader2, cmd);
     EXPECT_TRUE(rs.isLeader);
     EXPECT_EQ(rs.expectedLogIndex, ++logIndex);
 
@@ -419,4 +418,36 @@ TEST_F(RaftTest, TestFailAgree2B)
     one(uniqueCmd(), RAFT_NUM - 1, false);
     std::this_thread::sleep_for(MAX_ELECTION_TIMEOUT);
     one(uniqueCmd(), RAFT_NUM - 1, false);
+}
+
+TEST_F(RaftTest, TestFailNoAgree2B)
+{
+    const int RAFT_NUM = 5;
+    initRafts(RAFT_NUM);
+
+    one(uniqueCmd(), RAFT_NUM, false);
+
+    auto leader = checkOneLeader();
+    rafts_[(leader + 1) % RAFT_NUM].killRaft();
+    rafts_[(leader + 2) % RAFT_NUM].killRaft();
+    rafts_[(leader + 3) % RAFT_NUM].killRaft();
+
+    StartResult rs = callStartOf(leader, uniqueCmd());
+    int index = rs.expectedLogIndex;
+
+    string cmd;
+    EXPECT_LE(nCommitted(index, cmd), 0);
+
+    rafts_[(leader + 1) % RAFT_NUM].start();
+    rafts_[(leader + 2) % RAFT_NUM].start();
+    rafts_[(leader + 3) % RAFT_NUM].start();
+
+    int leader2 = checkOneLeader();
+    rs = callStartOf(leader2, cmd);
+    int index2 = rs.expectedLogIndex;
+    EXPECT_TRUE(rs.isLeader);
+    EXPECT_GE(index2, 2);
+    EXPECT_LE(index2, 3);
+
+    one(uniqueCmd(), RAFT_NUM, true);
 }
