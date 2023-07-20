@@ -3,8 +3,8 @@ import os
 import re
 
 curDir = os.getcwd()
-logDir = f'{curDir}/../logs'
-RAFT_NUM = 7
+logDir = f'{curDir}/../logs/TestFailAgree2B'
+RAFT_NUM = 3
 
 def log_list(path):
     rs = []

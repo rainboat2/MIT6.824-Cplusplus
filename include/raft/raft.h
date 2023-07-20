@@ -51,7 +51,7 @@ private:
 
     AppendEntriesParams buildAppendEntriesParamsFor(int peerIndex);
 
-    void handleAEResultFor(int peerIndex, AppendEntriesResult& rs, int logsNum);
+    void handleAEResultFor(int peerIndex, const AppendEntriesParams& params, const AppendEntriesResult& rs);
 
     int gatherLogsFor(int peerIndex, AppendEntriesParams& params);
 

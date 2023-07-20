@@ -29,62 +29,62 @@ Persister::Persister(std::string dirName_)
 
 void Persister::saveRaftState(RaftRPCHandler* rf)
 {
-    std::lock_guard<std::mutex> guard(lock_);
-    Timer t("Start saveRaftState!", "Finish saveRaftState!");
-    std::ofstream ofs(stateFile_);
-    checkState(rf);
-    ofs << rf->currentTerm_ << '\n';
+    // std::lock_guard<std::mutex> guard(lock_);
+    // Timer t("Start saveRaftState!", "Finish saveRaftState!");
+    // std::ofstream ofs(stateFile_);
+    // checkState(rf);
+    // ofs << rf->currentTerm_ << '\n';
 
-    if (rf->votedFor_ != NULL_ADDR)
-        ofs << rf->votedFor_.ip << ' ' << rf->votedFor_.port << '\n';
-    else
-        ofs << "-1.-1.-1.-1" << ' ' << -1 << '\n';
-    ofs << rf->logs_.size() << '\n';
+    // if (rf->votedFor_ != NULL_ADDR)
+    //     ofs << rf->votedFor_.ip << ' ' << rf->votedFor_.port << '\n';
+    // else
+    //     ofs << "-1.-1.-1.-1" << ' ' << -1 << '\n';
+    // ofs << rf->logs_.size() << '\n';
 
-    for (auto log : rf->logs_) {
-        ofs << log.command << '\n'
-            << log.index << ' ' << log.term << '\n';
-    }
-    LOG(INFO) << fmt::format("Write {} logs to disk: ", rf->logs_.size()) << rf->logs_;
+    // for (auto log : rf->logs_) {
+    //     ofs << log.command << '\n'
+    //         << log.index << ' ' << log.term << '\n';
+    // }
+    // LOG(INFO) << fmt::format("Write {} logs to disk: ", rf->logs_.size()) << rf->logs_;
 }
 
 void Persister::loadRaftState(RaftRPCHandler* rf)
 {
-    std::lock_guard<std::mutex> guard(lock_);
-    std::ifstream ifs(stateFile_);
-    if (!ifs.good())
-        return;
+    // std::lock_guard<std::mutex> guard(lock_);
+    // std::ifstream ifs(stateFile_);
+    // if (!ifs.good())
+    //     return;
 
-    char newLine;
-    ifs >> rf->currentTerm_;
-    ifs >> rf->votedFor_.ip >> rf->votedFor_.port;
-    if (rf->votedFor_.port < 0)
-        rf->votedFor_ = NULL_ADDR;
-    ifs.get(newLine);
+    // char newLine;
+    // ifs >> rf->currentTerm_;
+    // ifs >> rf->votedFor_.ip >> rf->votedFor_.port;
+    // if (rf->votedFor_.port < 0)
+    //     rf->votedFor_ = NULL_ADDR;
+    // ifs.get(newLine);
 
-    int logSize;
-    ifs >> logSize;
-    LOG(INFO) << fmt::format("Read {} logs from disk.", logSize);
-    rf->logs_.clear();
-    for (int i = 0; i < logSize; i++) {
-        LogEntry log;
-        std::getline(ifs, log.command);
-        ifs >> log.index >> log.term;
-        rf->logs_.push_back(std::move(log));
-        ifs.get(newLine);
-    }
+    // int logSize;
+    // ifs >> logSize;
+    // LOG(INFO) << fmt::format("Read {} logs from disk.", logSize);
+    // rf->logs_.clear();
+    // for (int i = 0; i < logSize; i++) {
+    //     LogEntry log;
+    //     std::getline(ifs, log.command);
+    //     ifs >> log.index >> log.term;
+    //     rf->logs_.push_back(std::move(log));
+    //     ifs.get(newLine);
+    // }
 
-    /*
-     * if state_ file is invalid, remove it and reset the raft state
-     */
-    if (!checkState(rf)) {
-        rf->currentTerm_ = 0;
-        rf->votedFor_ = NULL_ADDR;
-        rf->logs_.clear();
-        rf->logs_.emplace_back();
-        ifs.close();
-        remove(stateFile_.c_str());
-    }
+    // /*
+    //  * if state_ file is invalid, remove it and reset the raft state
+    //  */
+    // if (!checkState(rf)) {
+    //     rf->currentTerm_ = 0;
+    //     rf->votedFor_ = NULL_ADDR;
+    //     rf->logs_.clear();
+    //     rf->logs_.emplace_back();
+    //     ifs.close();
+    //     remove(stateFile_.c_str());
+    // }
 }
 
 bool Persister::checkState(RaftRPCHandler* rf)

@@ -1,6 +1,6 @@
 # Raft实现
 
-精读论文：[In Search of an Understandable Consensus Algorithm (Extended Version)](https://pages.cs.wisc.edu/~remzi/Classes/739/Spring2004/Papers/raft.pdf)
+> 精读论文：[In Search of an Understandable Consensus Algorithm (Extended Version)](https://pages.cs.wisc.edu/~remzi/Classes/739/Spring2004/Papers/raft.pdf)
 
 ## 选举算法
 
@@ -100,44 +100,59 @@ if (voteCnt > raftNum / 2) {
 
 ```c++
 while (true) {
-    {
-        std::lock_guard<std::mutex> guard(lock_);
-        if (state_ != ServerState::LEADER)
-            return;
-    }
+  vector<AppendEntriesParams> params(peersForHB.size());
+  {
+      std::lock_guard<std::mutex> guard(raftLock_);
+      if (state_ != ServerState::LEADER)     // 只有leader才能发送心跳包
+          return;
+      for (int i = 0; i < peersForHB.size(); i++) {
+          params[i] = buildAppendEntriesParamsFor(i);   // 由于心跳包也承担了同步日志index，commit状态的任务，因此需要为每个follower节点单独构建一个参数
+      }
+  }
 
-    vector<std::thread> threads(peers_.size());
-    for (int i = 0; i < peers_.size(); i++) {
-        threads[i] = std::thread([i, &peersForHB, this]() {
-            RaftAddr addr;
-            AppendEntriesParams params;
-            params.term = currentTerm_;
-            params.leaderId = me_;
-            try {
-                RaftRPCClient* client;
-                addr = peersForHB[i];
-                client = cmForHB_.getClient(i, addr);
+  auto startNext = NOW() + HEART_BEATS_INTERVAL;
+  vector<std::thread> threads(peersForHB.size());
+  for (int i = 0; i < peersForHB.size(); i++) {
+      threads[i] = std::thread([i, &peersForHB, &params, this]() {
+          RaftAddr addr;
+          try {
+              RaftRPCClient* client;
+              addr = peersForHB[i];
+              client = cmForHB_.getClient(i, addr);
+            
+              AppendEntriesResult rs;
+              client->appendEntries(rs, params[i]);
+              {
+                   std::lock_guard<std::mutex> guard(raftLock_);
+                   handleAEResultFor(i, rs, 0);
+              }
+          } catch (TException& tx) {
+              LOG_EVERY_N(ERROR, HEART_BEATS_LOG_COUNT) << fmt::format("Send {} heart beats to {} failed: {}",
+                  HEART_BEATS_LOG_COUNT, to_string(addr), tx.what());
+              cmForHB_.setInvalid(i);
+          }
+      });
+  }
 
-                auto app_start = NOW();
-                AppendEntriesResult rs;
-                client->appendEntries(rs, params);
-            } catch (TException& tx) {
-                cmForHB_.setInvalid(i);
-            }
-        });
-    }
+  for (int i = 0; i < peersForHB.size(); i++) {
+      threads[i].join();
+  }
+  LOG_EVERY_N(INFO, HEART_BEATS_LOG_COUNT) << fmt::format("Broadcast {} heart beats", HEART_BEATS_LOG_COUNT);
 
-    for (int i = 0; i < peers_.size(); i++) {
-        threads[i].detach();
-    }
-    std::this_thread::sleep_for(HEART_BEATS_INTERVAL);
+  std::this_thread::sleep_until(startNext);
 }
-
 ```
 
 
 
 ## 日志同步
+
+当客户端发送一个新的指令，状态机会首先给raft集群里面的leader发送一个同步的请求。leader为这条指令创建一个日志，并开始日志的拷贝。当日志被复制到绝大多数的raft节点上之后，这条日志就被标记为commit状态，可以被安全的应用到状态机上。下面说明实现日志的几个重要流程。
+
+### 启动同步流程
+
+```c++
+```
 
 
 
