@@ -95,8 +95,9 @@ if (voteCnt > raftNum / 2) {
 
 如下为Leader节点定期给其它所有节点发送心跳包的核心代码，在实现的过程中，主要需要注意以下几点：
 
-1. 只有Leader节点才能发送心跳包，因此每次发送之前需要检查一下当前节点是否为Leader
-2. 应该先发送心跳包，再sleep，这样成为leader后调用这个函数就能立刻通知到所有其它节点。
+1. 心跳包除了告诉follower自己还活着之外，还承担了同步日志index，同步commitIndex等重要功能，因此发送新跳包的逻辑应该与拷贝日志的逻辑一致（这一点很重要，课程官网特别强调了这一点）
+2. 只有Leader节点才能发送心跳包，因此每次发送之前需要检查一下当前节点是否为Leader
+3. 应该先发送心跳包，再sleep，这样成为leader后调用这个函数就能立刻通知到所有其它节点。
 
 ```c++
 while (true) {
@@ -113,18 +114,17 @@ while (true) {
   auto startNext = NOW() + HEART_BEATS_INTERVAL;
   vector<std::thread> threads(peersForHB.size());
   for (int i = 0; i < peersForHB.size(); i++) {
-      threads[i] = std::thread([i, &peersForHB, &params, this]() {
+      threads[i] = std::thread([i, &peersForHB, &params, this]() {    // 为每个follower都创建一个线程，并发发送
           RaftAddr addr;
           try {
               RaftRPCClient* client;
               addr = peersForHB[i];
               client = cmForHB_.getClient(i, addr);
-            
               AppendEntriesResult rs;
-              client->appendEntries(rs, params[i]);
+              client->appendEntries(rs, params[i]);     // RPC发起appendEntries调用
               {
                    std::lock_guard<std::mutex> guard(raftLock_);
-                   handleAEResultFor(i, rs, 0);
+                   handleAEResultFor(i, paramsList[i], rs);
               }
           } catch (TException& tx) {
               LOG_EVERY_N(ERROR, HEART_BEATS_LOG_COUNT) << fmt::format("Send {} heart beats to {} failed: {}",
@@ -151,12 +151,170 @@ while (true) {
 
 ### 启动同步流程
 
+状态机收到客户端的指令后，会首先通过调用Leader的`start`函数来启动线程，如果被调用raft节点的不是leader，则该请求会被拒绝，需要重试找到leader。如果是leader，就会创建一条日志，并开启同步流程。该函数实现需要注意如下几点：
+
+1. 用户的请求比较随机，直接发送心跳包的逻辑就可以完成日志同步，然而每次睡眠时间过长会导致日志同步慢，而睡眠时间太短则会导致过高的CPU占用，因此使用条件变量，在有新的日志到来时，立刻通知线程开始工作。
+2. 使用条件变量需要注意，如果没有线程等待条件变量，那么notify_one发出的信号会丢失，从而造成一条日志不能被及时同步，在编程的时候需要考虑notify_one丢失的情况。
+
 ```c++
+void RaftRPCHandler::start(StartResult& _return, const std::string& command)
+{
+    std::lock_guard<std::mutex> guard(raftLock_);
+
+    if (state_ != ServerState::LEADER) {
+        _return.isLeader = false;              // 只有leader才能开启一个日志的同步
+        return;
+    }
+  
+    LogEntry log;                             // 创建一个新的日志
+    log.index = logs_.back().index + 1;
+    log.command = command;
+    log.term = currentTerm_;
+    logs_.push_back(std::move(log));
+
+    _return.expectedLogIndex = log.index;
+    _return.term = currentTerm_;
+    _return.isLeader = true;
+
+    sendEntries_.notify_one();               // 使用条件变量，通知拷贝日志的线程开始工作
+}
 ```
 
 
 
-## 实现过程中碰到的问题
+### 构建日志同步参数
+
+构建日志的参数分为了两个函数，分别是`buildAppendEntriesParamsFor`和`gatherLogsFor`两个函数，这是因为发送心跳包和同步日志都需要构建AppendEntriesParams参数，而发送心跳包不需要日志，也就是不要`gatherLogsFor`函数里面的内容，因此将逻辑分为两块，便于复用函数。
+
+```c++
+AppendEntriesParams RaftRPCHandler::buildAppendEntriesParamsFor(int peerIndex)
+{
+    AppendEntriesParams params;
+    params.term = currentTerm_;
+    params.leaderId = me_;
+    auto& prevLog = getLogByLogIndex(nextIndex_[peerIndex] - 1);
+    params.prevLogIndex = prevLog.index;
+    params.prevLogTerm = prevLog.term;
+    params.leaderCommit = commitIndex_;
+    return params;
+}
+
+int RaftRPCHandler::gatherLogsFor(int peerIndex, AppendEntriesParams& params)
+{
+    int target = logs_.back().index;
+    if (nextIndex_[peerIndex] > target)
+        return 0;
+    int logsNum = std::min(target - nextIndex_[peerIndex] + 1, MAX_LOGS_PER_REQUEST);
+    for (int j = 0; j < logsNum; j++) {
+        params.entries.push_back(getLogByLogIndex(j + nextIndex_[peerIndex]));
+    }
+    return logsNum;
+}
+```
+
+### 处理同步日志的返回值
+
+这个函数需要做的就是依据返回的值，更新raft相应的状态，具体逻辑如下：
+
+1. 如果发送成功，更新`nextIndex_[i]`和`matchIndex[i]`的值
+2. 如果发送成功，依据`matchIndex`数组和当前的`commitIndex_`值，找到大多数节点都同意的一个值，来更新`commitIndex_`。需要注意的是，这是一个典型的topk问题，但是问题规模非常小，所以为了简化编程，直接使用了库函数里面提供的sort来解决
+3. 提交index的时候一定要判断提交的日志term是不是和当前的term保持一致。为了避免出现已提交的日志被覆盖的情况，一个leader不会提交之前任期的日志，这一点非常重要，在论文里面花了一个小节特地来讲。
+4. 如果发送失败，则奖`nextIndex[i]`的值后退到`params.prevLogIndex`。这个地方在编写的时候需要考虑到其它的线程可能已经更新了这个nextIndex[i]好几次，注意不要覆盖更新或是受到这些更新的影响。
+
+```c++
+void RaftRPCHandler::handleAEResultFor(int peerIndex, const AppendEntriesParams& params, const AppendEntriesResult& rs)
+{
+    int i = peerIndex;
+    if (rs.success) {
+        nextIndex_[i] += params.entries.size();
+        matchIndex_[i] = nextIndex_[i] - 1;
+        /*
+         * Update commitIndex_. This is a typical top k problem, since the size of matchIndex_ is tiny,
+         * to simplify the code, we handle this problem by sorting matchIndex_.
+         */
+        auto matchI = matchIndex_;
+        matchI.push_back(logs_.back().index);
+        sort(matchI.begin(), matchI.end());
+        int agreeIndex = matchI[matchI.size() / 2];
+        if (getLogByLogIndex(agreeIndex).term == currentTerm_)
+            commitIndex_ = agreeIndex;
+    } else {
+        nextIndex_[i] = std::min(nextIndex_[i], params.prevLogIndex);
+    }
+}
+```
+
+
+
+### 接收日志
+
+follower接收leader发送的日志，并返回成果或是失败的消息，实现的过程中主要需要注意以下几点
+
+1. 一定要严格按照论文Fig.2所描述的逻辑来，之前偷懒不想写对齐params.entry和raft节点logs_的逻辑，直接非常暴力的判断，如果params里面prevLogIndex要小于当前日志的末尾的index，就讲后续多余的日志全部删掉。结果导致一个心跳包和一个发送日志的请求同时发送时，心跳包可能会导致刚append的日志又被删掉。
+2. 依据leader节点提供的commit信息，更新自己的commit信息。
+
+```c++
+
+void RaftRPCHandler::appendEntries(AppendEntriesResult& _return, const AppendEntriesParams& params)
+{
+    std::lock_guard<std::mutex> guard(raftLock_);
+
+    _return.success = false;
+    _return.term = currentTerm_;
+
+    // ...
+    // Check validity of params
+    lastSeenLeader_ = NOW();
+
+    /*
+     * find the latest log entry where the two logs agree
+     */
+    if (params.prevLogIndex > logs_.back().index) {
+        LOG(INFO) << fmt::format("Expected older logs. prevLogIndex: {}, param.prevLogIndex: {}",
+            logs_.back().index, params.prevLogIndex);
+        return;
+    }
+
+    auto preLog = getLogByLogIndex(params.prevLogIndex);
+    if (params.prevLogTerm != preLog.term) {
+        LOG(INFO) << fmt::format("Expected log term {} at index {}, get {}, delete all logs after it!",
+            params.prevLogTerm, preLog.index, preLog.term);
+        while (logs_.back().index >= params.prevLogIndex)
+            logs_.pop_back();
+    }
+
+    {
+        // If an existing entry conficts with a new one (same index but different terms), delete it!;
+        int i;
+        for (i = 0; i < params.entries.size(); i++) {
+            auto& newEntry = params.entries[i];
+            if (newEntry.index > logs_.back().index)
+                break;
+            auto& entry = getLogByLogIndex(newEntry.index);
+            if (newEntry.term != entry.term) {
+                LOG(INFO) << fmt::format("Expected log term {} at index {}, get {}, delete all logs after it!",
+                    newEntry.term, entry.index, entry.term);
+                while (logs_.back().index >= newEntry.index)
+                    logs_.pop_back();
+                break;
+            }
+        }
+
+        // append any new entries not aleady in the logs_
+        for (; i < params.entries.size(); i++) {
+            auto& entry = params.entries[i];
+            logs_.push_back(entry);
+        }
+    }
+
+    commitIndex_ = std::min(params.leaderCommit, logs_.back().index);
+    _return.success = true;
+}
+```
+
+
+
+## 实现过程中碰到的一些问题
 
 1. raft进程随机奔溃的问题，特别是在之前运行了一大堆测试代码或者电脑没有插电源的情况。分析：leader会为每个follower维护一个nextIndex，用于指向下一条需要向子节点传输的日志。如果发送的日志过于超前，就会将nextIndex对应的位置减1。
 
@@ -176,5 +334,24 @@ try {
     std::lock_guard<std::mutex> guard(raftLock_);
     handleAEResultFor(i, rs, logsNum);
 }Ï
+```
+
+
+
+2. 函数设计有问题，不论状态直接减少nextIndex里面的值，当心跳包和日志同步请求同时发送后，就会导致nextIndex被错误的减少两两次：
+
+```c++
+void RaftRPCHandler::handleAEResultFor(int peerIndex, const AppendEntriesParams& params, const AppendEntriesResult& rs)
+{
+    int i = peerIndex;
+    if (rs.success) {
+      // update nextIndex_[i]
+      // update matchIndex_[i]
+      // update commitIndex_
+    } else {
+        // 这个地方不能直接nextIndex_[i]，否则会出现减少次数过多的情况
+        nextIndex_[i] = std::min(nextIndex_[i], params.prevLogIndex);
+    }
+}
 ```
 
