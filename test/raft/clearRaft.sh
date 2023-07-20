@@ -4,13 +4,12 @@ logDir=../../logs
 raftNum=7
 
 mkdir -p $logDir
+rm -rf $logDir/*
 
 for i in $( seq 1 $raftNum)
 do
-    mkdir -p $logDir/raft$i
-    rm -f $logDir/raft$i/*
     lsof -i:700$i -t | xargs kill -9
 done
 
 mkdir -p $logDir/test_raft
-rm -f $logDir/test_raft/*
+rm -f $logDir/test_raft/

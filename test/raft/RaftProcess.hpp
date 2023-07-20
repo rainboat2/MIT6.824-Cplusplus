@@ -47,7 +47,7 @@ public:
             FLAGS_log_dir = log_dir_;
             FLAGS_logbuflevel = -1;
             FLAGS_stderrthreshold = 5;
-            std::shared_ptr<RaftRPCHandler> handler(new RaftRPCHandler(peers_, me_));
+            std::shared_ptr<RaftRPCHandler> handler(new RaftRPCHandler(peers_, me_, log_dir_));
             std::shared_ptr<TProcessor> processor(new RaftRPCProcessor(handler));
             std::shared_ptr<TServerTransport> serverTransport(new TServerSocket(me_.port));
             std::shared_ptr<TTransportFactory> transportFactory(new TBufferedTransportFactory());

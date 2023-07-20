@@ -10,6 +10,7 @@
 #include <raft/ClientManager.h>
 #include <raft/rpc/RaftRPC.h>
 #include <raft/rpc/raft_types.h>
+#include <raft/Persister.h>
 
 constexpr auto NOW = std::chrono::steady_clock::now;
 constexpr auto MIN_ELECTION_TIMEOUT = std::chrono::milliseconds(150);
@@ -25,10 +26,11 @@ inline std::string to_string(const RaftAddr& addr)
     return '(' + addr.ip + ',' + std::to_string(addr.port) + ')';
 }
 
-
 class RaftRPCHandler : virtual public RaftRPCIf {
+    friend class Persister;
+
 public:
-    RaftRPCHandler(std::vector<RaftAddr>& peers, RaftAddr me);
+    RaftRPCHandler(std::vector<RaftAddr>& peers, RaftAddr me, std::string persisterDir);
 
     void requestVote(RequestVoteResult& _return, const RequestVoteParams& params) override;
 
@@ -47,10 +49,10 @@ private:
 
     LogEntry& getLogByLogIndex(int logIndex);
 
-    AppendEntriesParams buildAppendEntriesParams();
+    AppendEntriesParams buildAppendEntriesParamsFor(int peerIndex);
 
     void handleAEResultFor(int peerIndex, AppendEntriesResult& rs, int logsNum);
-    
+
     int gatherLogsFor(int peerIndex, AppendEntriesParams& params);
 
     std::chrono::microseconds getElectionTimeout();
@@ -89,6 +91,7 @@ private:
     RaftAddr me_;
     std::atomic<bool> inElection_;
     std::condition_variable sendEntries_;
+    Persister persister_;
 
     /*
      * Thrift client is thread-unsafe. Considering efficiency and safety,

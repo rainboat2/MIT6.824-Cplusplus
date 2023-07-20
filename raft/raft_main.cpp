@@ -36,7 +36,7 @@ int main(int argc, char** argv)
     vector<RaftAddr> peers = getPeerAddress(me);
 
     int port = me.port;
-    std::shared_ptr<RaftRPCHandler> handler(new RaftRPCHandler(peers, me));
+    std::shared_ptr<RaftRPCHandler> handler(new RaftRPCHandler(peers, me, FLAGS_log_dir));
     std::shared_ptr<TProcessor> processor(new RaftRPCProcessor(handler));
     std::shared_ptr<TServerTransport> serverTransport(new TServerSocket(port));
     std::shared_ptr<TTransportFactory> transportFactory(new TBufferedTransportFactory());

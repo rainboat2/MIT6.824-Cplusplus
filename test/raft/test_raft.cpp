@@ -5,9 +5,11 @@
 #include <random>
 #include <sstream>
 #include <string>
+#include <sys/stat.h>
 #include <thread>
 #include <vector>
 
+#include <cstdlib>
 #include <thrift/TOutput.h>
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <thrift/transport/TSocket.h>
@@ -39,6 +41,8 @@ class RaftTest : public testing::Test {
 protected:
     void SetUp() override
     {
+        logDir_ = fmt::format("../../logs/{}", testing::UnitTest::GetInstance()->current_test_info()->name());
+        mkdir(logDir_.c_str(), S_IRWXU);
         ports_ = { 7001, 7002, 7003, 7004, 7005, 7006, 7007, 7008 };
         cm_ = ClientManager(ports_.size(), RPC_TIMEOUT);
         GlobalOutput.setOutputFunction(outputErrmsg);
@@ -57,7 +61,9 @@ protected:
             vector<RaftAddr> peers = addrs_;
             RaftAddr me = addrs_[i];
             peers.erase(peers.begin() + i);
-            rafts_.emplace_back(peers, me, i + 1, fmt::format("../../logs/raft{}", i + 1));
+            string dirName = fmt::format("{}/raft{}", logDir_, i + 1);
+            rafts_.emplace_back(peers, me, i + 1, dirName);
+            mkdir(dirName.c_str(), S_IRWXU);
         }
 
         for (int i = 0; i < num; i++) {
@@ -185,7 +191,7 @@ protected:
     {
     }
 
-private:
+protected:
     RaftState getState(int i)
     {
         RaftState st;
@@ -205,6 +211,7 @@ protected:
     std::vector<RaftProcess> rafts_;
     std::vector<int> ports_;
     std::vector<RaftAddr> addrs_;
+    std::string logDir_;
     ClientManager cm_;
 };
 
@@ -226,7 +233,7 @@ TEST_F(RaftTest, SignleTest)
         EXPECT_LT(dur, 10);
     }
 
-    {
+    for (int i = 0; i < 10; i++) {
         auto start = NOW();
         std::stringstream ss;
         ss << st;
@@ -240,14 +247,8 @@ TEST_F(RaftTest, TestInitialElection2A)
     const int RAFT_NUM = 3;
     initRafts(RAFT_NUM);
 
-    RaftAddr addr;
-    addr.ip = "127.0.0.1";
-
     for (int i = 0; i < RAFT_NUM; i++) {
-        RaftState st;
-        addr.port = ports_[i];
-        auto client = cm_.getClient(i, addr);
-        client->getState(st);
+        RaftState st = getState(i);
         EXPECT_EQ(st.peers.size(), RAFT_NUM - 1);
     }
 
@@ -489,7 +490,7 @@ TEST_F(RaftTest, TestConcurrentStarts2B)
     EXPECT_EQ(nd, RAFT_NUM);
 }
 
-TEST_F(RaftTest, TestBackup)
+TEST_F(RaftTest, TestBackup2B)
 {
     const int RAFT_NUM = 5;
     initRafts(RAFT_NUM);

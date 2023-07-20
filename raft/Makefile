@@ -2,7 +2,7 @@ ROOTDIR     = ..
 -include ../Global.mk
 RPC         = raft-rpc
 
-RAFT_SOURCES = raft.cpp ClientManager.cpp
+RAFT_SOURCES = raft.cpp ClientManager.cpp Persister.cpp
 
 RAFT_OBJECTS = $(addprefix $(OBJECTS_DIR)/, $(RAFT_SOURCES:cpp=o))
 

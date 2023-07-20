@@ -34,7 +34,7 @@ using std::string;
 using std::vector;
 using time_point = std::chrono::steady_clock::time_point;
 
-RaftRPCHandler::RaftRPCHandler(vector<RaftAddr>& peers, RaftAddr me)
+RaftRPCHandler::RaftRPCHandler(vector<RaftAddr>& peers, RaftAddr me, string persisterDir)
     : currentTerm_(0)
     , votedFor_(NULL_ADDR)
     , commitIndex_(0)
@@ -46,6 +46,7 @@ RaftRPCHandler::RaftRPCHandler(vector<RaftAddr>& peers, RaftAddr me)
     , peers_(peers)
     , me_(std::move(me))
     , inElection_(false)
+    , persister_(persisterDir)
     , cmForHB_(peers.size(), HEART_BEATS_INTERVAL)
     , cmForRV_(peers.size(), RPC_TIMEOUT)
     , cmForAE_(peers.size(), RPC_TIMEOUT)
@@ -60,6 +61,7 @@ RaftRPCHandler::RaftRPCHandler(vector<RaftAddr>& peers, RaftAddr me)
         this->async_sendLogEntries();
     });
     ae.detach();
+    persister_.loadRaftState(this);
 }
 
 void RaftRPCHandler::requestVote(RequestVoteResult& _return, const RequestVoteParams& params)
@@ -89,21 +91,20 @@ void RaftRPCHandler::requestVote(RequestVoteResult& _return, const RequestVotePa
         return;
     }
 
-    if (!logs_.empty()) {
-        /*
-         * If the logs have last entries with different terms, then the log with the later term is more up-to-date. If the logs
-         * end with the same term, then whichever log is longer is more up-to-date.
-         */
-        auto lastLog = logs_.back();
-        if (lastLog.term < params.LastLogTerm || (lastLog.term == params.LastLogTerm && lastLog.index < params.lastLogIndex)) {
-            LOG(INFO) << fmt::format("Receive a vote request from {} with outdate logs, reject it.", to_string(params.candidateId));
-        }
+    /*
+     * If the logs have last entries with different terms, then the log with the later term is more up-to-date. If the logs
+     * end with the same term, then whichever log is longer is more up-to-date.
+     */
+    auto lastLog = logs_.back();
+    if (lastLog.term < params.LastLogTerm || (lastLog.term == params.LastLogTerm && lastLog.index < params.lastLogIndex)) {
+        LOG(INFO) << fmt::format("Receive a vote request from {} with outdate logs, reject it.", to_string(params.candidateId));
     }
 
     LOG(INFO) << "Vote for " << params.candidateId;
     votedFor_ = params.candidateId;
     _return.voteGranted = true;
     _return.term = currentTerm_;
+    persister_.saveRaftState(this);
 }
 
 void RaftRPCHandler::appendEntries(AppendEntriesResult& _return, const AppendEntriesParams& params)
@@ -144,19 +145,41 @@ void RaftRPCHandler::appendEntries(AppendEntriesResult& _return, const AppendEnt
     /*
      * find the latest log entry where the two logs agree
      */
-    while (params.prevLogIndex < logs_.back().index) {
-        LOG(INFO) << "Delete extra uncommitted entry: " << logs_.back() << ", "
-                  << fmt::format("pervLog(term: {}, index: {})", params.prevLogTerm, params.prevLogIndex);
-        logs_.pop_back();
-    }
-    if (params.prevLogIndex == logs_.back().index && params.prevLogTerm != logs_.back().term) {
-        LOG(INFO) << fmt::format("Expected log term: {}, get {}, delete it!", params.prevLogTerm, logs_.back().term);
-        logs_.pop_back();
+    if (logs_.back().index < params.prevLogIndex) {
+        LOG(INFO) << "Logs from leader are too ahead, reject it!";
         return;
     }
 
-    for (auto& entry : params.entries) {
-        logs_.push_back(entry);
+    auto preLog = getLogByLogIndex(params.prevLogIndex);
+    if (params.prevLogTerm != preLog.term) {
+        LOG(INFO) << fmt::format("Expected log term {} at index {}, get {}, delete all logs after it!",
+            params.prevLogTerm, preLog.index, preLog.term);
+        while (logs_.back().index >= params.prevLogIndex)
+            logs_.pop_back();
+    }
+
+    {
+        // If an existing entry conficts with a new one (same index but different terms), delete it!;
+        int i;
+        for (i = 0; i < params.entries.size(); i++) {
+            auto& newEntry = params.entries[i];
+            if (newEntry.index > logs_.back().index)
+                break;
+            auto& entry = getLogByLogIndex(newEntry.index);
+            if (newEntry.term != entry.term) {
+                LOG(INFO) << fmt::format("Expected log term {} at index {}, get {}, delete all logs after it!",
+                    newEntry.term, entry.index, entry.term);
+                while (logs_.back().index >= newEntry.index)
+                    logs_.pop_back();
+                break;
+            }
+        }
+
+        // append any new entries not aleady in the logs_
+        for (; i < params.entries.size(); i++) {
+            auto& entry = params.entries[i];
+            logs_.push_back(entry);
+        }
     }
 
     commitIndex_ = std::min(params.leaderCommit, logs_.back().index);
@@ -167,13 +190,13 @@ void RaftRPCHandler::appendEntries(AppendEntriesResult& _return, const AppendEnt
                    HEART_BEATS_LOG_COUNT, to_string(params.leaderId), params.term, currentTerm_);
     } else {
         LOG(INFO) << "Received appendEntries request!";
+        persister_.saveRaftState(this);
     }
     _return.success = true;
 }
 
 void RaftRPCHandler::getState(RaftState& _return)
 {
-    // Timer t("Start getState", "Finished get state");
     std::lock_guard<std::mutex> guard(raftLock_);
     _return.currentTerm = currentTerm_;
     _return.votedFor = votedFor_;
@@ -186,7 +209,6 @@ void RaftRPCHandler::getState(RaftState& _return)
     }
     LOG(INFO) << fmt::format("Get raft state: term = {}, votedFor = {}, commitIndex = {}, lastApplied = {}, state={}, logs size={}",
         currentTerm_, to_string(votedFor_), commitIndex_, lastApplied_, to_string(state_), _return.logs.size());
-    // LOG(INFO) << "Get raft state" << _return;
 }
 
 void RaftRPCHandler::start(StartResult& _return, const std::string& command)
@@ -250,16 +272,21 @@ void RaftRPCHandler::switchToLeader()
 LogEntry& RaftRPCHandler::getLogByLogIndex(int logIndex)
 {
     int i = logIndex - logs_.front().index;
-    return logs_[i];
+    auto& entry = logs_[i];
+    LOG_IF(FATAL, logIndex != entry.index) << "Unexpected log entry: " << entry << " in index: " << logIndex;
+    return entry;
 }
 
-AppendEntriesParams RaftRPCHandler::buildAppendEntriesParams()
+AppendEntriesParams RaftRPCHandler::buildAppendEntriesParamsFor(int peerIndex)
 {
     AppendEntriesParams params;
     params.term = currentTerm_;
     params.leaderId = me_;
-    params.prevLogIndex = logs_.back().index;
-    params.prevLogTerm = logs_.back().term;
+
+    auto& prevLog = getLogByLogIndex(nextIndex_[peerIndex] - 1);
+    params.prevLogIndex = prevLog.index;
+    params.prevLogTerm = prevLog.term;
+
     params.leaderCommit = commitIndex_;
     return params;
 }
@@ -290,10 +317,6 @@ int RaftRPCHandler::gatherLogsFor(int peerIndex, AppendEntriesParams& params)
     int target = logs_.back().index;
     if (nextIndex_[peerIndex] > target)
         return 0;
-
-    auto& prevLog = getLogByLogIndex(nextIndex_[peerIndex] - 1);
-    params.prevLogIndex = prevLog.index;
-    params.prevLogTerm = prevLog.term;
 
     int logsNum = std::min(target - nextIndex_[peerIndex] + 1, MAX_LOGS_PER_REQUEST);
     for (int j = 0; j < logsNum; j++) {
@@ -430,12 +453,14 @@ void RaftRPCHandler::async_sendHeartBeats() noexcept
     }
 
     while (true) {
-        AppendEntriesParams params;
+        vector<AppendEntriesParams> params(peersForHB.size());
         {
             std::lock_guard<std::mutex> guard(raftLock_);
             if (state_ != ServerState::LEADER)
                 return;
-            params = buildAppendEntriesParams();
+            for (int i = 0; i < peersForHB.size(); i++) {
+                params[i] = buildAppendEntriesParamsFor(i);
+            }
         }
 
         auto startNext = NOW() + HEART_BEATS_INTERVAL;
@@ -449,7 +474,12 @@ void RaftRPCHandler::async_sendHeartBeats() noexcept
                     client = cmForHB_.getClient(i, addr);
 
                     AppendEntriesResult rs;
-                    client->appendEntries(rs, params);
+                    client->appendEntries(rs, params[i]);
+
+                    // {
+                    //     std::lock_guard<std::mutex> guard(raftLock_);
+                    //     handleAEResultFor(i, rs, 0);
+                    // }
                 } catch (TException& tx) {
                     LOG_EVERY_N(ERROR, HEART_BEATS_LOG_COUNT) << fmt::format("Send {} heart beats to {} failed: {}",
                         HEART_BEATS_LOG_COUNT, to_string(addr), tx.what());
@@ -497,7 +527,7 @@ void RaftRPCHandler::async_sendLogEntries() noexcept
                     int logsNum;
                     {
                         std::lock_guard<std::mutex> guard(raftLock_);
-                        params = buildAppendEntriesParams();
+                        params = buildAppendEntriesParamsFor(i);
                         logsNum = gatherLogsFor(i, params);
                     }
 
