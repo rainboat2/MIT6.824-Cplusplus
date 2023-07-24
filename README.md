@@ -1,8 +1,13 @@
 # 分布式系统（MIT6.824) C++实现
 
-[课程链接](https://pdos.csail.mit.edu/6.824/schedule.html)
+本项目是对MIT6.824课程中分布式系统的C++实现。虽然6.824课程提供的是Go相关的资料，但出于深入理解C++的目的，本项目另辟蹊径，采用C++来完成课程的实验。不得不说，6.824课程弃用C++，转而使用Go是有一定道理的。C++在错误提示，内存管理，以及并发编程方面相比Go都要麻烦太多了。为了确保正确的实现，本项目参考6.824课程提供的测试代码，使用`gtest`编写了大量的测试用例来测试程序，但是鉴于系统的复杂程度，
 
-实现思路：
+### 参考资料
+
+1. [课程链接](https://pdos.csail.mit.edu/6.824/schedule.html)，分布式系统官方课程资料
+2. [logcabin](https://github.com/logcabin/logcabin.git)，raft原作者在论文里面提供的，一个raft的C++实现
+
+### 实现思路
 
 1. [MapReduce](https://github.com/rainboat2/MIT6.824-Cplusplus/blob/main/MapReduce.md)
 2. [Raft](https://github.com/rainboat2/MIT6.824-Cplusplus/blob/main/Raft.md)

@@ -65,9 +65,9 @@ struct StartResult {
 }
 
 service RaftRPC {
-    RequestVoteResult requestVote(1: RequestVoteParams params),
+    RequestVoteResult requestVote(1: RequestVoteParams params);
 
-    AppendEntriesResult appendEntries(1: AppendEntriesParams params)
+    AppendEntriesResult appendEntries(1: AppendEntriesParams params);
 
     RaftState getState();
 

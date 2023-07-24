@@ -9,4 +9,5 @@ AR          = ar -rcs
 
 BIN         = $(ROOTDIR)/bin
 LIBDIR      = $(ROOTDIR)/lib
+INC_DIR     = $(ROOTDIR)/include
 OBJECTS_DIR = $(ROOTDIR)/objs
