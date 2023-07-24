@@ -36,7 +36,6 @@ void RaftRPCHandler::async_checkLeaderStatus()
 ```
 
 
-
 ### 选举流程
 
 下面给出了一个节点成为candidate之后，向其它节点请求选票的核心流程，实现的过程中值得注意的几个点：
@@ -250,7 +249,7 @@ void RaftRPCHandler::handleAEResultFor(int peerIndex, const AppendEntriesParams&
 
 follower接收leader发送的日志，并返回成果或是失败的消息，实现的过程中主要需要注意以下几点
 
-1. 一定要严格按照论文Fig.2所描述的逻辑来，之前偷懒不想写对齐params.entry和raft节点logs_的逻辑，直接非常暴力的判断，如果params里面prevLogIndex要小于当前日志的末尾的index，就讲后续多余的日志全部删掉。结果导致一个心跳包和一个发送日志的请求同时发送时，心跳包可能会导致刚append的日志又被删掉。
+1. 一定要严格按照论文Fig.2所描述的逻辑来，此前没有写对齐params.entry和raft节点logs_的逻辑，简单的判断如果params里面prevLogIndex要小于当前日志的末尾的index，就将后续多余的日志全部删掉。结果导致一个心跳包和一个发送日志的请求同时发送时，心跳包可能会导致刚append的日志又被删掉这一问题。
 2. 依据leader节点提供的commit信息，更新自己的commit信息。
 
 ```c++

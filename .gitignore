@@ -5,6 +5,7 @@
 *.a
 */logs/*
 */raft-rpc
+kvraft/kv-server-rpc
 */src/gen-cpp
 MapReduce/data/mr*
 */bin/*

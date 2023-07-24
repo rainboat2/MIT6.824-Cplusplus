@@ -1,11 +1,11 @@
-ROOTDIR     = ..
 -include ../Global.mk
+
+ROOTDIR     = ..
 RPC         = raft-rpc
 
 RAFT_SOURCES = raft.cpp ClientManager.cpp Persister.cpp
 
 RAFT_OBJECTS = $(addprefix $(OBJECTS_DIR)/, $(RAFT_SOURCES:cpp=o))
-
 OBJECTS = $(RAFT_OBJECTS)
 
 RAFT_LIB = $(LIBDIR)/libraft.a
@@ -24,8 +24,7 @@ $(RPC): raft.thrift
 	mv gen-cpp $(RPC)
 	$(CC) $(CPPFLAGS) $(INC) -c $(RPC)/RaftRPC.cpp -o $(RPC)/RaftRPC.o
 	$(CC) $(CPPFLAGS) $(INC) -c $(RPC)/raft_types.cpp -o $(RPC)/raft_types.o
-	ln -f $(RPC)/raft_types.h $(ROOTDIR)/include/raft/rpc/raft_types.h
-	ln -f $(RPC)/RaftRPC.h $(ROOTDIR)/include/raft/rpc/RaftRPC.h
+	cp $(RPC)/*.h $(INC_DIR)/raft/rpc
 
 # generate object file
 -include $(OBJECTS:.o=.d)

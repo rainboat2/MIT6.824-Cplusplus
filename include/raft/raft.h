@@ -8,9 +8,10 @@
 #include <vector>
 
 #include <raft/ClientManager.h>
+#include <raft/Persister.h>
 #include <raft/rpc/RaftRPC.h>
 #include <raft/rpc/raft_types.h>
-#include <raft/Persister.h>
+#include <tools/ToString.hpp>
 
 constexpr auto NOW = std::chrono::steady_clock::now;
 constexpr auto MIN_ELECTION_TIMEOUT = std::chrono::milliseconds(150);
@@ -20,11 +21,6 @@ constexpr auto RPC_TIMEOUT = std::chrono::milliseconds(250);
 constexpr int MAX_LOGS_PER_REQUEST = 20;
 constexpr int HEART_BEATS_LOG_COUNT = 1;
 const RaftAddr NULL_ADDR;
-
-inline std::string to_string(const RaftAddr& addr)
-{
-    return '(' + addr.ip + ',' + std::to_string(addr.port) + ')';
-}
 
 class RaftRPCHandler : virtual public RaftRPCIf {
     friend class Persister;
