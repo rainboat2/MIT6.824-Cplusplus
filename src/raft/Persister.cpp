@@ -9,7 +9,8 @@
 
 #include <raft/Persister.h>
 #include <raft/raft.h>
-#include <raft/rpc/raft_types.h>
+#include <rpc/kvraft/KVRaft_types.h>
+#include <rpc/kvraft/Raft.h>
 #include <tools/Timer.hpp>
 
 static std::ostream& operator<<(std::ostream& out, std::deque<LogEntry>& logs)
@@ -27,7 +28,7 @@ Persister::Persister(std::string dirName_)
 {
 }
 
-void Persister::saveRaftState(RaftRPCHandler* rf)
+void Persister::saveRaftState(RaftHandler* rf)
 {
     // std::lock_guard<std::mutex> guard(lock_);
     // Timer t("Start saveRaftState!", "Finish saveRaftState!");
@@ -48,7 +49,7 @@ void Persister::saveRaftState(RaftRPCHandler* rf)
     // LOG(INFO) << fmt::format("Write {} logs to disk: ", rf->logs_.size()) << rf->logs_;
 }
 
-void Persister::loadRaftState(RaftRPCHandler* rf)
+void Persister::loadRaftState(RaftHandler* rf)
 {
     // std::lock_guard<std::mutex> guard(lock_);
     // std::ifstream ifs(stateFile_);
@@ -87,7 +88,7 @@ void Persister::loadRaftState(RaftRPCHandler* rf)
     // }
 }
 
-bool Persister::checkState(RaftRPCHandler* rf)
+bool Persister::checkState(RaftHandler* rf)
 {
     LOG_IF(ERROR, rf->currentTerm_ < 0) << "Invalid term: " << rf->currentTerm_;
     for (int i = 1; i < rf->logs_.size(); i++) {

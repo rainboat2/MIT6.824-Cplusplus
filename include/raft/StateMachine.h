@@ -15,7 +15,7 @@ struct ApplyMsg {
     int snapshotIndex;
 };
 
-class StateMachine {
+class StateMachineIf {
 public:
     virtual void apply(ApplyMsg& msg) = 0;
 

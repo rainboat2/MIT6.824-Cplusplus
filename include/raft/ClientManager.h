@@ -4,8 +4,8 @@
 #include <memory>
 #include <unordered_map>
 
-#include <raft/rpc/RaftRPC.h>
-#include <raft/rpc/raft_types.h>
+#include <rpc/kvraft/Raft.h>
+#include <rpc/kvraft/KVRaft_types.h>
 
 class ClientManager {
 public:
@@ -13,12 +13,12 @@ public:
 
     ClientManager(int num, std::chrono::milliseconds timeout);
 
-    RaftRPCClient* getClient(int i, RaftAddr& addr);
+    RaftClient* getClient(int i, Host& addr);
 
     void setInvalid(int i);
 
 private:
-    std::vector<std::unique_ptr<RaftRPCClient>> clients_;
+    std::vector<std::unique_ptr<RaftClient>> clients_;
     std::chrono::milliseconds timeout_;
 };
 

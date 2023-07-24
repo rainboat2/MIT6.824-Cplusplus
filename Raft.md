@@ -11,7 +11,7 @@
 raft节点会随机睡眠一段时间（在150ms~300ms之内），醒来后会检查上次见到leader的时间，如果时间超时，那么可以认为leader已经出现故障，这种情况下就会开启新一轮的投票，选出新的leader。
 
 ```c++
-void RaftRPCHandler::async_checkLeaderStatus()
+void RaftHandler::async_checkLeaderStatus()
 {
     while (true) {
         std::this_thread::sleep_for(getElectionTimeout());   // 随机睡眠一段时间
@@ -55,7 +55,7 @@ vector<std::thread> threads(peersForRV.size());
 for (int i = 0; i < peersForRV.size(); i++) {
     threads[i] = std::thread([i, this, &peersForRV, &params, &voteCnt, &finishCnt, &cv]() {
         RequestVoteResult rs;
-        RaftRPCClient* client;
+        RaftClient* client;
         try {
             client = cmForRV_.getClient(i, peersForRV[i]);
             client->requestVote(rs, params);  // 发送选票请求
@@ -114,9 +114,9 @@ while (true) {
   vector<std::thread> threads(peersForHB.size());
   for (int i = 0; i < peersForHB.size(); i++) {
       threads[i] = std::thread([i, &peersForHB, &params, this]() {    // 为每个follower都创建一个线程，并发发送
-          RaftAddr addr;
+          Host addr;
           try {
-              RaftRPCClient* client;
+              RaftClient* client;
               addr = peersForHB[i];
               client = cmForHB_.getClient(i, addr);
               AppendEntriesResult rs;
@@ -156,7 +156,7 @@ while (true) {
 2. 使用条件变量需要注意，如果没有线程等待条件变量，那么notify_one发出的信号会丢失，从而造成一条日志不能被及时同步，在编程的时候需要考虑notify_one丢失的情况。
 
 ```c++
-void RaftRPCHandler::start(StartResult& _return, const std::string& command)
+void RaftHandler::start(StartResult& _return, const std::string& command)
 {
     std::lock_guard<std::mutex> guard(raftLock_);
 
@@ -186,7 +186,7 @@ void RaftRPCHandler::start(StartResult& _return, const std::string& command)
 构建日志的参数分为了两个函数，分别是`buildAppendEntriesParamsFor`和`gatherLogsFor`两个函数，这是因为发送心跳包和同步日志都需要构建AppendEntriesParams参数，而发送心跳包不需要日志，也就是不要`gatherLogsFor`函数里面的内容，因此将逻辑分为两块，便于复用函数。
 
 ```c++
-AppendEntriesParams RaftRPCHandler::buildAppendEntriesParamsFor(int peerIndex)
+AppendEntriesParams RaftHandler::buildAppendEntriesParamsFor(int peerIndex)
 {
     AppendEntriesParams params;
     params.term = currentTerm_;
@@ -198,7 +198,7 @@ AppendEntriesParams RaftRPCHandler::buildAppendEntriesParamsFor(int peerIndex)
     return params;
 }
 
-int RaftRPCHandler::gatherLogsFor(int peerIndex, AppendEntriesParams& params)
+int RaftHandler::gatherLogsFor(int peerIndex, AppendEntriesParams& params)
 {
     int target = logs_.back().index;
     if (nextIndex_[peerIndex] > target)
@@ -221,7 +221,7 @@ int RaftRPCHandler::gatherLogsFor(int peerIndex, AppendEntriesParams& params)
 4. 如果发送失败，则奖`nextIndex[i]`的值后退到`params.prevLogIndex`。这个地方在编写的时候需要考虑到其它的线程可能已经更新了这个nextIndex[i]好几次，注意不要覆盖更新或是受到这些更新的影响。
 
 ```c++
-void RaftRPCHandler::handleAEResultFor(int peerIndex, const AppendEntriesParams& params, const AppendEntriesResult& rs)
+void RaftHandler::handleAEResultFor(int peerIndex, const AppendEntriesParams& params, const AppendEntriesResult& rs)
 {
     int i = peerIndex;
     if (rs.success) {
@@ -254,7 +254,7 @@ follower接收leader发送的日志，并返回成果或是失败的消息，实
 
 ```c++
 
-void RaftRPCHandler::appendEntries(AppendEntriesResult& _return, const AppendEntriesParams& params)
+void RaftHandler::appendEntries(AppendEntriesResult& _return, const AppendEntriesParams& params)
 {
     std::lock_guard<std::mutex> guard(raftLock_);
 
@@ -340,7 +340,7 @@ try {
 2. 函数设计有问题，不论状态直接减少nextIndex里面的值，当心跳包和日志同步请求同时发送后，就会导致nextIndex被错误的减少两两次：
 
 ```c++
-void RaftRPCHandler::handleAEResultFor(int peerIndex, const AppendEntriesParams& params, const AppendEntriesResult& rs)
+void RaftHandler::handleAEResultFor(int peerIndex, const AppendEntriesParams& params, const AppendEntriesResult& rs)
 {
     int i = peerIndex;
     if (rs.success) {

@@ -4,10 +4,9 @@
 *.so
 *.a
 */logs/*
-*/raft-rpc
-kvraft/kv-server-rpc
-*/src/gen-cpp
-MapReduce/data/mr*
+src/rpc/KVRaft
+src/rpc/MapReduce
+data/mr*
 */bin/*
 *.DS_Store
 objs

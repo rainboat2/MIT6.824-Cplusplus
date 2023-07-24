@@ -51,15 +51,15 @@ protected:
     void initRafts(int num)
     {
         EXPECT_GE(ports_.size(), num);
-        addrs_ = vector<RaftAddr>(num);
+        addrs_ = vector<Host>(num);
         for (int i = 0; i < num; i++) {
             addrs_[i].ip = "127.0.0.1";
             addrs_[i].port = ports_[i];
         }
 
         for (int i = 0; i < num; i++) {
-            vector<RaftAddr> peers = addrs_;
-            RaftAddr me = addrs_[i];
+            vector<Host> peers = addrs_;
+            Host me = addrs_[i];
             peers.erase(peers.begin() + i);
             string dirName = fmt::format("{}/raft{}", logDir_, i + 1);
             rafts_.emplace_back(peers, me, i + 1, dirName);
@@ -210,7 +210,7 @@ protected:
 protected:
     std::vector<RaftProcess> rafts_;
     std::vector<int> ports_;
-    std::vector<RaftAddr> addrs_;
+    std::vector<Host> addrs_;
     std::string logDir_;
     ClientManager cm_;
 };
@@ -220,7 +220,7 @@ TEST_F(RaftTest, SignleTest)
     const int RAFT_NUM = 1;
     initRafts(RAFT_NUM);
 
-    RaftAddr addr;
+    Host addr;
     addr.ip = "127.0.0.1";
     RaftState st;
     addr.port = ports_[0];

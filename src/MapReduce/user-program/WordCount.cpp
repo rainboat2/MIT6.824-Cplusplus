@@ -1,4 +1,4 @@
-#include "../src/MapReduce.h"
+#include <mapreduce/MapReduce.h>
 
 using std::vector;
 using std::string;

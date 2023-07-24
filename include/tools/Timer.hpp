@@ -1,13 +1,12 @@
-#ifndef TIMER_HPP
-#define TIMER_HPP
+#ifndef TIMER_H
+#define TIMER_H
 
-#include <vector>
 #include <string>
+#include <vector>
 
 #include <fmt/format.h>
 #include <gflags/gflags.h>
 #include <glog/logging.h>
-
 
 class Timer {
 public:

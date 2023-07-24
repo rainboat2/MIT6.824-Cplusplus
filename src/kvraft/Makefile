@@ -1,8 +1,7 @@
--include ../Global.mk
+-include ../../Global.mk
 
-ROOTDIR = ..
-LIBS    := $(LIBS) -lraft
-RPC     = kvraft-rpc
+ROOTDIR = ../..
+LIBS    := $(LIBS) -lkvraft-rpc -lraft
 
 KV_SOURCES = KVServer.cpp KVMain.cpp
 
@@ -11,16 +10,11 @@ OBJECTS = $(KV_OBJECTS)
 
 all: make-raft $(BIN)/kvraft
 
-$(BIN)/kvraft: $(KV_OBJECTS) $(LIBDIR)/libraft.a
-	$(CC) $(CPPFLAGS) $(LIBS) $(LDFLAGS) $(INC) -o $@ $^
+$(BIN)/kvraft: $(OBJECTS)
+	$(CC) $(CPPFLAGS) $(LIBS) $(LDFLAGS) $(INC) -o $@ $(OBJECTS)
 
-$(RPC): KVRaft.thrift
-	rm -rf $@
-	thrift -r --gen cpp $<
-	mv gen-cpp $(RPC)
-	$(CC) $(CPPFLAGS) $(INC) -c $(RPC)/KVRaft.cpp -o $(RPC)/KVRaft.o
-	$(CC) $(CPPFLAGS) $(INC) -c $(RPC)/KVRaft_types.cpp -o $(RPC)/KVRaft_types.o
-	cp $(RPC)/*.h $(INC_DIR)/kvraft/rpc
+$(LIBDIR)/libraft.a:
+	make -C $(ROOTDIR)/src/raft
 
 # generate object file
 -include $(OBJECTS:.o=.d)
@@ -38,8 +32,8 @@ $(OBJECTS): %.o:
 
 .PHONY: clean make-raft
 clean:
-	make -C $(ROOTDIR)/raft clean
+	make -C $(ROOTDIR)/src/raft clean
 	rm -rf $(BIN)/kvraft $(RPC)
 
 make-raft:
-	make -C $(ROOTDIR)/raft
+	make -C $(ROOTDIR)/src/raft

@@ -28,10 +28,10 @@ brew install thrift fmt gtest glog gflags
 
 执行如下命令构建MapReduce程序，并运行word count任务
 ```shell
-cd MapReduce
-make
+make MapReduce
 
 # 执行word count任务
+cd test/mapreduce
 bash test.sh
 ```
 
@@ -39,8 +39,7 @@ bash test.sh
 
 执行如下命令构建Raft静态库，运行raft程序参见后续Test章节内容
 ```shell
-cd Raft
-make
+make raft
 ```
 
 ## Test

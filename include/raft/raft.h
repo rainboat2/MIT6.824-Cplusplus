@@ -9,8 +9,8 @@
 
 #include <raft/ClientManager.h>
 #include <raft/Persister.h>
-#include <raft/rpc/RaftRPC.h>
-#include <raft/rpc/raft_types.h>
+#include <rpc/kvraft/Raft.h>
+#include <rpc/kvraft/KVRaft_types.h>
 #include <tools/ToString.hpp>
 
 constexpr auto NOW = std::chrono::steady_clock::now;
@@ -20,13 +20,13 @@ constexpr auto HEART_BEATS_INTERVAL = std::chrono::milliseconds(50);
 constexpr auto RPC_TIMEOUT = std::chrono::milliseconds(250);
 constexpr int MAX_LOGS_PER_REQUEST = 20;
 constexpr int HEART_BEATS_LOG_COUNT = 1;
-const RaftAddr NULL_ADDR;
+const Host NULL_ADDR;
 
-class RaftRPCHandler : virtual public RaftRPCIf {
+class RaftHandler : virtual public RaftIf {
     friend class Persister;
 
 public:
-    RaftRPCHandler(std::vector<RaftAddr>& peers, RaftAddr me, std::string persisterDir);
+    RaftHandler(std::vector<Host>& peers, Host me, std::string persisterDir);
 
     void requestVote(RequestVoteResult& _return, const RequestVoteParams& params) override;
 
@@ -64,7 +64,7 @@ private:
 private:
     // persisten state on all servers
     TermId currentTerm_;
-    RaftAddr votedFor_;
+    Host votedFor_;
     std::deque<LogEntry> logs_;
 
     // volatile state on all servers
@@ -83,8 +83,8 @@ private:
      */
     std::mutex raftLock_;
     std::chrono::steady_clock::time_point lastSeenLeader_;
-    std::vector<RaftAddr> peers_;
-    RaftAddr me_;
+    std::vector<Host> peers_;
+    Host me_;
     std::atomic<bool> inElection_;
     std::condition_variable sendEntries_;
     Persister persister_;

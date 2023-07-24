@@ -18,7 +18,7 @@
 
 class RaftProcess {
 public:
-    RaftProcess(std::vector<RaftAddr>& peers, RaftAddr me, int id, std::string log_dir)
+    RaftProcess(std::vector<Host>& peers, Host me, int id, std::string log_dir)
         : pid_(-1)
         , peers_(peers)
         , me_(me)
@@ -47,8 +47,8 @@ public:
             FLAGS_log_dir = log_dir_;
             FLAGS_logbuflevel = -1;
             FLAGS_stderrthreshold = 5;
-            std::shared_ptr<RaftRPCHandler> handler(new RaftRPCHandler(peers_, me_, log_dir_));
-            std::shared_ptr<TProcessor> processor(new RaftRPCProcessor(handler));
+            std::shared_ptr<RaftHandler> handler(new RaftHandler(peers_, me_, log_dir_));
+            std::shared_ptr<TProcessor> processor(new RaftProcessor(handler));
             std::shared_ptr<TServerTransport> serverTransport(new TServerSocket(me_.port));
             std::shared_ptr<TTransportFactory> transportFactory(new TBufferedTransportFactory());
             std::shared_ptr<TProtocolFactory> protocolFactory(new TBinaryProtocolFactory());
@@ -71,8 +71,8 @@ public:
 
 private:
     pid_t pid_;
-    std::vector<RaftAddr> peers_;
-    RaftAddr me_;
+    std::vector<Host> peers_;
+    Host me_;
     int id_;
     std::string log_dir_;
 };

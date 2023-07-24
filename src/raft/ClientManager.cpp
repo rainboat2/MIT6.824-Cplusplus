@@ -19,7 +19,7 @@ ClientManager::ClientManager(int num, std::chrono::milliseconds timeout)
 {
 }
 
-RaftRPCClient* ClientManager::getClient(int i, RaftAddr& addr)
+RaftClient* ClientManager::getClient(int i, Host& addr)
 {
     if (clients_[i] == nullptr) {
         auto sk = new TSocket(addr.ip, addr.port);
@@ -29,7 +29,7 @@ RaftRPCClient* ClientManager::getClient(int i, RaftAddr& addr)
         std::shared_ptr<TTransport> socket(sk);
         std::shared_ptr<TTransport> transport(new TBufferedTransport(socket));
         std::shared_ptr<TProtocol> protocol(new TBinaryProtocol(transport));
-        clients_[i] = std::make_unique<RaftRPCClient>(protocol);
+        clients_[i] = std::make_unique<RaftClient>(protocol);
         transport->open();
     }
 

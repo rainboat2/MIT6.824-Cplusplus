@@ -34,7 +34,7 @@ using std::string;
 using std::vector;
 using time_point = std::chrono::steady_clock::time_point;
 
-RaftRPCHandler::RaftRPCHandler(vector<RaftAddr>& peers, RaftAddr me, string persisterDir)
+RaftHandler::RaftHandler(vector<Host>& peers, Host me, string persisterDir)
     : currentTerm_(0)
     , votedFor_(NULL_ADDR)
     , commitIndex_(0)
@@ -64,7 +64,7 @@ RaftRPCHandler::RaftRPCHandler(vector<RaftAddr>& peers, RaftAddr me, string pers
     persister_.loadRaftState(this);
 }
 
-void RaftRPCHandler::requestVote(RequestVoteResult& _return, const RequestVoteParams& params)
+void RaftHandler::requestVote(RequestVoteResult& _return, const RequestVoteParams& params)
 {
     std::lock_guard<std::mutex> guard(raftLock_);
 
@@ -107,7 +107,7 @@ void RaftRPCHandler::requestVote(RequestVoteResult& _return, const RequestVotePa
     persister_.saveRaftState(this);
 }
 
-void RaftRPCHandler::appendEntries(AppendEntriesResult& _return, const AppendEntriesParams& params)
+void RaftHandler::appendEntries(AppendEntriesResult& _return, const AppendEntriesParams& params)
 {
     std::lock_guard<std::mutex> guard(raftLock_);
 
@@ -190,7 +190,7 @@ void RaftRPCHandler::appendEntries(AppendEntriesResult& _return, const AppendEnt
     _return.success = true;
 }
 
-void RaftRPCHandler::getState(RaftState& _return)
+void RaftHandler::getState(RaftState& _return)
 {
     std::lock_guard<std::mutex> guard(raftLock_);
     _return.currentTerm = currentTerm_;
@@ -206,7 +206,7 @@ void RaftRPCHandler::getState(RaftState& _return)
         currentTerm_, to_string(votedFor_), commitIndex_, lastApplied_, to_string(state_), _return.logs.size());
 }
 
-void RaftRPCHandler::start(StartResult& _return, const std::string& command)
+void RaftHandler::start(StartResult& _return, const std::string& command)
 {
     std::lock_guard<std::mutex> guard(raftLock_);
 
@@ -229,7 +229,7 @@ void RaftRPCHandler::start(StartResult& _return, const std::string& command)
     LOG(INFO) << "start to synchronization cmd: " << command;
 }
 
-void RaftRPCHandler::switchToFollow()
+void RaftHandler::switchToFollow()
 {
     state_ = ServerState::FOLLOWER;
     LOG(INFO) << "Switch to follower!";
@@ -240,7 +240,7 @@ void RaftRPCHandler::switchToFollow()
     votedFor_ = NULL_ADDR;
 }
 
-void RaftRPCHandler::switchToCandidate()
+void RaftHandler::switchToCandidate()
 {
     state_ = ServerState::CANDIDAE;
     LOG(INFO) << "Switch to Candidate!";
@@ -251,7 +251,7 @@ void RaftRPCHandler::switchToCandidate()
     votedFor_ = NULL_ADDR;
 }
 
-void RaftRPCHandler::switchToLeader()
+void RaftHandler::switchToLeader()
 {
     state_ = ServerState::LEADER;
     LOG(INFO) << "Switch to Leader! Term: " << currentTerm_;
@@ -264,7 +264,7 @@ void RaftRPCHandler::switchToLeader()
     std::fill(matchIndex_.begin(), matchIndex_.end(), 0);
 }
 
-LogEntry& RaftRPCHandler::getLogByLogIndex(int logIndex)
+LogEntry& RaftHandler::getLogByLogIndex(int logIndex)
 {
     int i = logIndex - logs_.front().index;
     LOG_IF(FATAL, i < 0 || i > logs_.size()) << fmt::format("Unexpected log index {}, cur logs size is {}", logIndex, logs_.size());
@@ -273,7 +273,7 @@ LogEntry& RaftRPCHandler::getLogByLogIndex(int logIndex)
     return entry;
 }
 
-AppendEntriesParams RaftRPCHandler::buildAppendEntriesParamsFor(int peerIndex)
+AppendEntriesParams RaftHandler::buildAppendEntriesParamsFor(int peerIndex)
 {
     AppendEntriesParams params;
     params.term = currentTerm_;
@@ -287,7 +287,7 @@ AppendEntriesParams RaftRPCHandler::buildAppendEntriesParamsFor(int peerIndex)
     return params;
 }
 
-void RaftRPCHandler::handleAEResultFor(int peerIndex, const AppendEntriesParams& params, const AppendEntriesResult& rs)
+void RaftHandler::handleAEResultFor(int peerIndex, const AppendEntriesParams& params, const AppendEntriesResult& rs)
 {
     int i = peerIndex;
     if (rs.success) {
@@ -308,7 +308,7 @@ void RaftRPCHandler::handleAEResultFor(int peerIndex, const AppendEntriesParams&
     }
 }
 
-int RaftRPCHandler::gatherLogsFor(int peerIndex, AppendEntriesParams& params)
+int RaftHandler::gatherLogsFor(int peerIndex, AppendEntriesParams& params)
 {
     int target = logs_.back().index;
     if (nextIndex_[peerIndex] > target)
@@ -322,7 +322,7 @@ int RaftRPCHandler::gatherLogsFor(int peerIndex, AppendEntriesParams& params)
     return logsNum;
 }
 
-std::chrono::microseconds RaftRPCHandler::getElectionTimeout()
+std::chrono::microseconds RaftHandler::getElectionTimeout()
 {
     static std::random_device rd;
     static std::uniform_int_distribution<int> randomTime(
@@ -332,7 +332,7 @@ std::chrono::microseconds RaftRPCHandler::getElectionTimeout()
     return timeout;
 }
 
-void RaftRPCHandler::async_checkLeaderStatus() noexcept
+void RaftHandler::async_checkLeaderStatus() noexcept
 {
     while (true) {
         std::this_thread::sleep_for(getElectionTimeout());
@@ -360,7 +360,7 @@ void RaftRPCHandler::async_checkLeaderStatus() noexcept
     }
 }
 
-void RaftRPCHandler::async_startElection() noexcept
+void RaftHandler::async_startElection() noexcept
 {
     bool expected = false;
     if (!inElection_.compare_exchange_strong(expected, true)) {
@@ -368,7 +368,7 @@ void RaftRPCHandler::async_startElection() noexcept
         return;
     }
 
-    vector<RaftAddr> peersForRV;
+    vector<Host> peersForRV;
     RequestVoteParams params;
     {
         std::lock_guard<std::mutex> guard(raftLock_);
@@ -400,7 +400,7 @@ void RaftRPCHandler::async_startElection() noexcept
     for (int i = 0; i < peersForRV.size(); i++) {
         threads[i] = std::thread([i, this, &peersForRV, &params, &voteCnt, &finishCnt, &cv]() {
             RequestVoteResult rs;
-            RaftRPCClient* client;
+            RaftClient* client;
             try {
                 client = cmForRV_.getClient(i, peersForRV[i]);
                 client->requestVote(rs, params);
@@ -436,13 +436,13 @@ void RaftRPCHandler::async_startElection() noexcept
     inElection_ = false;
 }
 
-void RaftRPCHandler::async_sendHeartBeats() noexcept
+void RaftHandler::async_sendHeartBeats() noexcept
 {
     /*
      * copy peers_ to a local variable, so we don't need to aquire and release raftLock_ frequently
      * to access peers_
      */
-    vector<RaftAddr> peersForHB;
+    vector<Host> peersForHB;
     {
         std::lock_guard<std::mutex> guard(raftLock_);
         peersForHB = peers_;
@@ -463,9 +463,9 @@ void RaftRPCHandler::async_sendHeartBeats() noexcept
         vector<std::thread> threads(peersForHB.size());
         for (int i = 0; i < peersForHB.size(); i++) {
             threads[i] = std::thread([i, &peersForHB, &paramsList, this]() {
-                RaftAddr addr;
+                Host addr;
                 try {
-                    RaftRPCClient* client;
+                    RaftClient* client;
                     addr = peersForHB[i];
                     client = cmForHB_.getClient(i, addr);
 
@@ -493,13 +493,13 @@ void RaftRPCHandler::async_sendHeartBeats() noexcept
     }
 }
 
-void RaftRPCHandler::async_sendLogEntries() noexcept
+void RaftHandler::async_sendLogEntries() noexcept
 {
     while (true) {
-        vector<RaftAddr> peersForAE;
+        vector<Host> peersForAE;
         {
             /*
-             * wait for RaftRPCHandler::start function to notify
+             * wait for RaftHandler::start function to notify
              */
             std::unique_lock<std::mutex> logLock(raftLock_);
             sendEntries_.wait(logLock);

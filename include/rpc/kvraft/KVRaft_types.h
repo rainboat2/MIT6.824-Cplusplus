@@ -4,8 +4,8 @@
  * DO NOT EDIT UNLESS YOU ARE SURE THAT YOU KNOW WHAT YOU ARE DOING
  *  @generated
  */
-#ifndef raft_TYPES_H
-#define raft_TYPES_H
+#ifndef KVRaft_TYPES_H
+#define KVRaft_TYPES_H
 
 #include <iosfwd>
 
@@ -35,9 +35,36 @@ std::ostream& operator<<(std::ostream& out, const ServerState::type& val);
 
 std::string to_string(const ServerState::type& val);
 
+struct PutOp {
+  enum type {
+    PUT = 0,
+    APPEND = 1
+  };
+};
+
+extern const std::map<int, const char*> _PutOp_VALUES_TO_NAMES;
+
+std::ostream& operator<<(std::ostream& out, const PutOp::type& val);
+
+std::string to_string(const PutOp::type& val);
+
+struct KVStatus {
+  enum type {
+    OK = 0,
+    ERR_NO_KEY = 1,
+    ERR_WRONG_LEADER = 2
+  };
+};
+
+extern const std::map<int, const char*> _KVStatus_VALUES_TO_NAMES;
+
+std::ostream& operator<<(std::ostream& out, const KVStatus::type& val);
+
+std::string to_string(const KVStatus::type& val);
+
 typedef int32_t TermId;
 
-class RaftAddr;
+class Host;
 
 class RequestVoteParams;
 
@@ -53,33 +80,41 @@ class RaftState;
 
 class StartResult;
 
-typedef struct _RaftAddr__isset {
-  _RaftAddr__isset() : ip(false), port(false) {}
+class PutAppendParams;
+
+class PutAppenRely;
+
+class GetParams;
+
+class GetReply;
+
+typedef struct _Host__isset {
+  _Host__isset() : ip(false), port(false) {}
   bool ip :1;
   bool port :1;
-} _RaftAddr__isset;
+} _Host__isset;
 
-class RaftAddr : public virtual ::apache::thrift::TBase {
+class Host : public virtual ::apache::thrift::TBase {
  public:
 
-  RaftAddr(const RaftAddr&);
-  RaftAddr& operator=(const RaftAddr&);
-  RaftAddr() noexcept
-           : ip(),
-             port(0) {
+  Host(const Host&);
+  Host& operator=(const Host&);
+  Host() noexcept
+       : ip(),
+         port(0) {
   }
 
-  virtual ~RaftAddr() noexcept;
+  virtual ~Host() noexcept;
   std::string ip;
   int16_t port;
 
-  _RaftAddr__isset __isset;
+  _Host__isset __isset;
 
   void __set_ip(const std::string& val);
 
   void __set_port(const int16_t val);
 
-  bool operator == (const RaftAddr & rhs) const
+  bool operator == (const Host & rhs) const
   {
     if (!(ip == rhs.ip))
       return false;
@@ -87,11 +122,11 @@ class RaftAddr : public virtual ::apache::thrift::TBase {
       return false;
     return true;
   }
-  bool operator != (const RaftAddr &rhs) const {
+  bool operator != (const Host &rhs) const {
     return !(*this == rhs);
   }
 
-  bool operator < (const RaftAddr & ) const;
+  bool operator < (const Host & ) const;
 
   uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
   uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
@@ -99,9 +134,9 @@ class RaftAddr : public virtual ::apache::thrift::TBase {
   virtual void printTo(std::ostream& out) const;
 };
 
-void swap(RaftAddr &a, RaftAddr &b);
+void swap(Host &a, Host &b);
 
-std::ostream& operator<<(std::ostream& out, const RaftAddr& obj);
+std::ostream& operator<<(std::ostream& out, const Host& obj);
 
 typedef struct _RequestVoteParams__isset {
   _RequestVoteParams__isset() : term(false), candidateId(false), lastLogIndex(false), LastLogTerm(false) {}
@@ -124,7 +159,7 @@ class RequestVoteParams : public virtual ::apache::thrift::TBase {
 
   virtual ~RequestVoteParams() noexcept;
   TermId term;
-  RaftAddr candidateId;
+  Host candidateId;
   int32_t lastLogIndex;
   TermId LastLogTerm;
 
@@ -132,7 +167,7 @@ class RequestVoteParams : public virtual ::apache::thrift::TBase {
 
   void __set_term(const TermId val);
 
-  void __set_candidateId(const RaftAddr& val);
+  void __set_candidateId(const Host& val);
 
   void __set_lastLogIndex(const int32_t val);
 
@@ -297,7 +332,7 @@ class AppendEntriesParams : public virtual ::apache::thrift::TBase {
 
   virtual ~AppendEntriesParams() noexcept;
   TermId term;
-  RaftAddr leaderId;
+  Host leaderId;
   int32_t prevLogIndex;
   TermId prevLogTerm;
   std::vector<LogEntry>  entries;
@@ -307,7 +342,7 @@ class AppendEntriesParams : public virtual ::apache::thrift::TBase {
 
   void __set_term(const TermId val);
 
-  void __set_leaderId(const RaftAddr& val);
+  void __set_leaderId(const Host& val);
 
   void __set_prevLogIndex(const int32_t val);
 
@@ -424,7 +459,7 @@ class RaftState : public virtual ::apache::thrift::TBase {
 
   virtual ~RaftState() noexcept;
   TermId currentTerm;
-  RaftAddr votedFor;
+  Host votedFor;
   int32_t commitIndex;
   int32_t lastApplied;
   /**
@@ -432,14 +467,14 @@ class RaftState : public virtual ::apache::thrift::TBase {
    * @see ServerState
    */
   ServerState::type state;
-  std::vector<RaftAddr>  peers;
+  std::vector<Host>  peers;
   std::vector<LogEntry>  logs;
 
   _RaftState__isset __isset;
 
   void __set_currentTerm(const TermId val);
 
-  void __set_votedFor(const RaftAddr& val);
+  void __set_votedFor(const Host& val);
 
   void __set_commitIndex(const int32_t val);
 
@@ -447,7 +482,7 @@ class RaftState : public virtual ::apache::thrift::TBase {
 
   void __set_state(const ServerState::type val);
 
-  void __set_peers(const std::vector<RaftAddr> & val);
+  void __set_peers(const std::vector<Host> & val);
 
   void __set_logs(const std::vector<LogEntry> & val);
 
@@ -541,6 +576,211 @@ class StartResult : public virtual ::apache::thrift::TBase {
 void swap(StartResult &a, StartResult &b);
 
 std::ostream& operator<<(std::ostream& out, const StartResult& obj);
+
+typedef struct _PutAppendParams__isset {
+  _PutAppendParams__isset() : key(false), value(false), op(false) {}
+  bool key :1;
+  bool value :1;
+  bool op :1;
+} _PutAppendParams__isset;
+
+class PutAppendParams : public virtual ::apache::thrift::TBase {
+ public:
+
+  PutAppendParams(const PutAppendParams&);
+  PutAppendParams& operator=(const PutAppendParams&);
+  PutAppendParams() noexcept
+                  : key(),
+                    value(),
+                    op(static_cast<PutOp::type>(0)) {
+  }
+
+  virtual ~PutAppendParams() noexcept;
+  std::string key;
+  std::string value;
+  /**
+   * 
+   * @see PutOp
+   */
+  PutOp::type op;
+
+  _PutAppendParams__isset __isset;
+
+  void __set_key(const std::string& val);
+
+  void __set_value(const std::string& val);
+
+  void __set_op(const PutOp::type val);
+
+  bool operator == (const PutAppendParams & rhs) const
+  {
+    if (!(key == rhs.key))
+      return false;
+    if (!(value == rhs.value))
+      return false;
+    if (!(op == rhs.op))
+      return false;
+    return true;
+  }
+  bool operator != (const PutAppendParams &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const PutAppendParams & ) const;
+
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(PutAppendParams &a, PutAppendParams &b);
+
+std::ostream& operator<<(std::ostream& out, const PutAppendParams& obj);
+
+typedef struct _PutAppenRely__isset {
+  _PutAppenRely__isset() : status(false) {}
+  bool status :1;
+} _PutAppenRely__isset;
+
+class PutAppenRely : public virtual ::apache::thrift::TBase {
+ public:
+
+  PutAppenRely(const PutAppenRely&) noexcept;
+  PutAppenRely& operator=(const PutAppenRely&) noexcept;
+  PutAppenRely() noexcept
+               : status(static_cast<KVStatus::type>(0)) {
+  }
+
+  virtual ~PutAppenRely() noexcept;
+  /**
+   * 
+   * @see KVStatus
+   */
+  KVStatus::type status;
+
+  _PutAppenRely__isset __isset;
+
+  void __set_status(const KVStatus::type val);
+
+  bool operator == (const PutAppenRely & rhs) const
+  {
+    if (!(status == rhs.status))
+      return false;
+    return true;
+  }
+  bool operator != (const PutAppenRely &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const PutAppenRely & ) const;
+
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(PutAppenRely &a, PutAppenRely &b);
+
+std::ostream& operator<<(std::ostream& out, const PutAppenRely& obj);
+
+typedef struct _GetParams__isset {
+  _GetParams__isset() : key(false) {}
+  bool key :1;
+} _GetParams__isset;
+
+class GetParams : public virtual ::apache::thrift::TBase {
+ public:
+
+  GetParams(const GetParams&);
+  GetParams& operator=(const GetParams&);
+  GetParams() noexcept
+            : key() {
+  }
+
+  virtual ~GetParams() noexcept;
+  std::string key;
+
+  _GetParams__isset __isset;
+
+  void __set_key(const std::string& val);
+
+  bool operator == (const GetParams & rhs) const
+  {
+    if (!(key == rhs.key))
+      return false;
+    return true;
+  }
+  bool operator != (const GetParams &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const GetParams & ) const;
+
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(GetParams &a, GetParams &b);
+
+std::ostream& operator<<(std::ostream& out, const GetParams& obj);
+
+typedef struct _GetReply__isset {
+  _GetReply__isset() : status(false), value(false) {}
+  bool status :1;
+  bool value :1;
+} _GetReply__isset;
+
+class GetReply : public virtual ::apache::thrift::TBase {
+ public:
+
+  GetReply(const GetReply&);
+  GetReply& operator=(const GetReply&);
+  GetReply() noexcept
+           : status(static_cast<KVStatus::type>(0)),
+             value() {
+  }
+
+  virtual ~GetReply() noexcept;
+  /**
+   * 
+   * @see KVStatus
+   */
+  KVStatus::type status;
+  std::string value;
+
+  _GetReply__isset __isset;
+
+  void __set_status(const KVStatus::type val);
+
+  void __set_value(const std::string& val);
+
+  bool operator == (const GetReply & rhs) const
+  {
+    if (!(status == rhs.status))
+      return false;
+    if (!(value == rhs.value))
+      return false;
+    return true;
+  }
+  bool operator != (const GetReply &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const GetReply & ) const;
+
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(GetReply &a, GetReply &b);
+
+std::ostream& operator<<(std::ostream& out, const GetReply& obj);
 
 
 

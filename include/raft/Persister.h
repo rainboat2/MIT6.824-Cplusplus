@@ -5,18 +5,18 @@
 #include <mutex>
 #include <fstream>
 
-class RaftRPCHandler;
+class RaftHandler;
 
 class Persister {
 public:
     Persister(std::string dirName_);
 
-    void saveRaftState(RaftRPCHandler* rf);
+    void saveRaftState(RaftHandler* rf);
 
-    void loadRaftState(RaftRPCHandler* rf);
+    void loadRaftState(RaftHandler* rf);
 
 private:
-    bool checkState(RaftRPCHandler* rf);
+    bool checkState(RaftHandler* rf);
 
 private:
     std::string stateFile_;

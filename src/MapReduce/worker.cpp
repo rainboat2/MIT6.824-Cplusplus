@@ -1,26 +1,25 @@
 #include <algorithm>
 #include <chrono>
+#include <cstdlib>
 #include <dlfcn.h>
 #include <fmt/core.h>
 #include <fstream>
 #include <iostream>
+#include <random>
 #include <string>
 #include <thread>
 #include <unordered_map>
 #include <vector>
-#include <cstdlib>
-#include <random>
 
-#include <glog/logging.h>
 #include <gflags/gflags.h>
+#include <glog/logging.h>
 
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <thrift/transport/TSocket.h>
 #include <thrift/transport/TTransportUtils.h>
 
-#include "MapReduce.h"
-#include "gen-cpp/Master.h"
-#include "tools.h"
+#include <mapreduce/MapReduce.h>
+#include <rpc/mapreduce/Master.h>
 
 using namespace apache::thrift;
 using namespace apache::thrift::protocol;
@@ -30,8 +29,11 @@ using std::string;
 using std::unordered_map;
 using std::vector;
 
+constexpr auto TIME_OUT = std::chrono::seconds(5);
+
 DEFINE_double(exit_possibility, 0, "exit possibility");
 DEFINE_double(delay_possibility, 0, "delay possibility");
+DEFINE_string(map_reduce_func, "", "map reduce dynamic library");
 
 class Worker {
 public:
@@ -218,7 +220,7 @@ private:
 std::pair<MapFunc, ReduceFunc> loadFunc()
 {
     LOG(INFO) << "Load MapReduce functions.";
-    void* handle = dlopen("../user-program/WordCount.so", RTLD_LAZY);
+    void* handle = dlopen(FLAGS_map_reduce_func.c_str(), RTLD_LAZY);
     if (!handle) {
         LOG(FATAL) << "Cannot open library: " << dlerror();
     }
@@ -239,10 +241,12 @@ int main(int argc, char** argv)
 
     LOG(INFO) << "Set log_dir: " << FLAGS_log_dir;
     LOG(INFO) << fmt::format("exit_possibility: {}, delay_possibility: {}", FLAGS_exit_possibility, FLAGS_delay_possibility);
+    LOG(INFO) << "dynamic library: " << FLAGS_map_reduce_func;
 
     std::shared_ptr<TTransport> socket(new TSocket("localhost", 8888));
     std::shared_ptr<TTransport> transport(new TBufferedTransport(socket));
     std::shared_ptr<TProtocol> protocol(new TBinaryProtocol(transport));
+    google::FlushLogFiles(google::INFO);
 
     auto funcs = loadFunc();
     try {

@@ -10,8 +10,8 @@ using namespace ::apache::thrift::server;
 
 int main()
 {
-    std::vector<RaftAddr> peers;
-    RaftAddr me;
+    std::vector<Host> peers;
+    Host me;
     me.ip = "localhost";
     me.port = 9001;
     RaftProcess rp(peers, me, 1, "/Users/rain/vscodeProjects/MIT6.824/logs/raft1");
@@ -25,7 +25,7 @@ int main()
     std::shared_ptr<TTransport> socket(sk);
     std::shared_ptr<TTransport> transport(new TBufferedTransport(socket));
     std::shared_ptr<TProtocol> protocol(new TBinaryProtocol(transport));
-    RaftRPCClient client(protocol);
+    RaftClient client(protocol);
     transport->open();
 
     std::this_thread::sleep_for(std::chrono::milliseconds(5000));

@@ -8,14 +8,13 @@
 #include <thread>
 #include <unordered_map>
 
+#include <rpc/mapreduce/Master.h>
+#include <tools/ToString.hpp>
 
-#include "gen-cpp/Master.h"
-#include "tools.h"
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <thrift/server/TThreadedServer.h>
 #include <thrift/transport/TBufferTransports.h>
 #include <thrift/transport/TServerSocket.h>
-
 #include <fmt/core.h>
 #include <glog/logging.h>
 
@@ -31,6 +30,7 @@ using std::unordered_map;
 using std::vector;
 using time_point = std::chrono::steady_clock::time_point;
 
+constexpr auto TIME_OUT = std::chrono::seconds(5);
 
 enum class TaskState {
     IDLE = 0,
@@ -75,7 +75,7 @@ public:
         for (int i = 0; i < mapTasks_.size(); i++)
             idle_.push(i);
 
-        std::thread de([this](){
+        std::thread de([this]() {
             this->detectTimeoutTask();
         });
         de.detach();
@@ -142,8 +142,7 @@ public:
             return;
         }
 
-
-        auto& tasks = (state_ == MasterState::MAP_PHASE ? mapTasks_ : reduceTasks_);                        
+        auto& tasks = (state_ == MasterState::MAP_PHASE ? mapTasks_ : reduceTasks_);
         /*
          * This task may have been previously committed by another woker,
          * so there is no need to commit task again.
