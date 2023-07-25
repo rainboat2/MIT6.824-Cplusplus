@@ -8,16 +8,16 @@ KV_SOURCES = KVServer.cpp KVMain.cpp
 KV_OBJECTS = $(addprefix $(OBJECTS_DIR)/, $(KV_SOURCES:cpp=o))
 OBJECTS = $(KV_OBJECTS)
 
-all: make-raft $(BIN)/kvraft $(LIBDIR)/libkvraft.a
+all: make-raft $(BIN)/kvraft $(LIB_DIR)/libkvraft.a
 
 $(BIN)/kvraft: $(OBJECTS)
 	$(CC) $(CPPFLAGS) $(LIBS) $(LDFLAGS) $(INC) -o $@ $(OBJECTS)
 
-$(LIBDIR)/libkvraft.a:
+$(LIB_DIR)/libkvraft.a:
 	$(AR) $@ $(OBJECTS)
 
-$(LIBDIR)/libraft.a:
-	make -C $(ROOTDIR)/src/raft
+$(LIB_DIR)/libraft.a:
+	make -C $(SRC_DIR)/raft
 
 # generate object file
 -include $(OBJECTS:.o=.d)
@@ -35,8 +35,8 @@ $(OBJECTS): %.o:
 
 .PHONY: clean make-raft
 clean:
-	make -C $(ROOTDIR)/src/raft clean
+	make -C $(SRC_DIR)/raft clean
 	rm -rf $(BIN)/kvraft $(RPC)
 
 make-raft:
-	make -C $(ROOTDIR)/src/raft
+	make -C $(SRC_DIR)/raft

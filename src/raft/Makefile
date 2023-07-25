@@ -8,7 +8,7 @@ RAFT_SOURCES = raft.cpp Persister.cpp
 RAFT_OBJECTS = $(addprefix $(OBJECTS_DIR)/, $(RAFT_SOURCES:cpp=o))
 OBJECTS = $(RAFT_OBJECTS)
 
-RAFT_LIB = $(LIBDIR)/libraft.a
+RAFT_LIB = $(LIB_DIR)/libraft.a
 
 all: $(RAFT_LIB)
 

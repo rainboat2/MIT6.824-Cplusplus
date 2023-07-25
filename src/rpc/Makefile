@@ -2,12 +2,12 @@
 
 ROOTDIR = ../..
 
-all: $(LIBDIR)/libkvraft-rpc.a $(LIBDIR)/libmr-rpc.a
+all: $(LIB_DIR)/libkvraft-rpc.a $(LIB_DIR)/libmr-rpc.a
 
-$(LIBDIR)/libkvraft-rpc.a: KVRaft
+$(LIB_DIR)/libkvraft-rpc.a: KVRaft
 	$(AR) $@ $</*.o
 
-$(LIBDIR)/libmr-rpc.a: MapReduce
+$(LIB_DIR)/libmr-rpc.a: MapReduce
 	$(AR) $@ $</*.o
 
 KVRaft: KVRaft.thrift
@@ -28,4 +28,4 @@ MapReduce: MapReduce.thrift
 	cp $@/*.h $(INC_DIR)/rpc/mapreduce
 
 clean:
-	rm -rf $(LIBDIR)/libkvraft-rpc.a KVRaft
+	rm -rf $(LIB_DIR)/libkvraft-rpc.a KVRaft

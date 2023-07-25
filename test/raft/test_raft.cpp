@@ -1,7 +1,7 @@
 #include <array>
 #include <atomic>
+#include <cstdlib>
 #include <fstream>
-#include <gtest/gtest.h>
 #include <random>
 #include <sstream>
 #include <string>
@@ -9,7 +9,7 @@
 #include <thread>
 #include <vector>
 
-#include <cstdlib>
+#include <gtest/gtest.h>
 #include <thrift/TOutput.h>
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <thrift/transport/TSocket.h>
@@ -17,8 +17,8 @@
 
 #include "RaftProcess.hpp"
 
-#include <tools/ClientManager.hpp>
 #include <raft/StateMachine.h>
+#include <tools/ClientManager.hpp>
 
 using namespace apache::thrift;
 using namespace apache::thrift::protocol;
