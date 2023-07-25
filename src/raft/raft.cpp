@@ -62,6 +62,11 @@ RaftHandler::RaftHandler(vector<Host>& peers, Host me, string persisterDir, Stat
         this->async_sendLogEntries();
     });
     ae.detach();
+    std::thread applier([this]() {
+        this->async_applyMsg();
+    });
+    applier.detach();
+
     persister_.loadRaftState(this);
 }
 
@@ -571,6 +576,38 @@ void RaftHandler::async_sendLogEntries() noexcept
 
 void RaftHandler::async_applyMsg() noexcept
 {
+    std::queue<LogEntry> logsForApply;
     while (true) {
+        std::this_thread::sleep_for(APPLY_MSG_INTERVAL);
+
+        while (true) {
+            {
+                std::lock_guard<std::mutex> guard(raftLock_);
+                // we only copy 20 logs each time to avoid holding the lock for too long
+                for (int i = lastApplied_; i < std::min(lastApplied_ + 20, commitIndex_); i++) {
+                    logsForApply.push(getLogByLogIndex(i));
+                }
+            }
+
+            if (logsForApply.empty())
+                break;
+
+            const int N = logsForApply.size();
+            while (!logsForApply.empty()) {
+                LogEntry log = std::move(logsForApply.front());
+                logsForApply.pop();
+
+                ApplyMsg msg;
+                msg.commandValid = true;
+                msg.command = log.command;
+                msg.commandIndex = log.index;
+                stateMachine_->apply(msg);
+            }
+
+            {
+                std::lock_guard<std::mutex> guard(raftLock_);
+                lastApplied_ += N;
+            }
+        }
     }
 }

@@ -10,9 +10,10 @@ using std::string;
 using std::vector;
 
 KVServer::KVServer(vector<Host>& peers, Host me, string persisterDir, std::function<void()> stopListenPort)
-    : raft_(std::make_shared<RaftHandler>(peers, me, persisterDir), this)
+    : raft_(std::make_shared<RaftHandler>(peers, me, persisterDir, this))
     , stopListenPort_(stopListenPort)
 {
+    StateMachineIf* sm = this;
 }
 
 void KVServer::putAppend(PutAppendReply& _return, const PutAppendParams& params)

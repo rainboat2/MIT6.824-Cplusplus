@@ -36,10 +36,10 @@ int main(int argc, char** argv)
     std::shared_ptr<TTransportFactory> transportFactory(new TBufferedTransportFactory());
     std::shared_ptr<TProtocolFactory> protocolFactory(new TBinaryProtocolFactory());
 
-    auto stopProcessRequest_ = [serverTransport]() {
+    auto stopListenPort = [serverTransport]() {
         serverTransport->close();
     };
-    std::shared_ptr<KVServer> handler(new KVServer(peers, me, FLAGS_log_dir));
+    std::shared_ptr<KVServer> handler(new KVServer(peers, me, FLAGS_log_dir, stopListenPort));
     std::shared_ptr<TProcessor> processor(new KVRaftProcessor(handler));
 
     TThreadedServer server(processor, serverTransport, transportFactory, protocolFactory);
