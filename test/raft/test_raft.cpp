@@ -17,7 +17,7 @@
 
 #include "RaftProcess.hpp"
 
-#include <raft/ClientManager.h>
+#include <tools/ClientManager.hpp>
 
 using namespace apache::thrift;
 using namespace apache::thrift::protocol;
@@ -44,7 +44,7 @@ protected:
         logDir_ = fmt::format("../../logs/{}", testing::UnitTest::GetInstance()->current_test_info()->name());
         mkdir(logDir_.c_str(), S_IRWXU);
         ports_ = { 7001, 7002, 7003, 7004, 7005, 7006, 7007, 7008 };
-        cm_ = ClientManager(ports_.size(), RPC_TIMEOUT);
+        cm_ = ClientManager<RaftClient>(ports_.size(), RPC_TIMEOUT);
         GlobalOutput.setOutputFunction(outputErrmsg);
     }
 
@@ -212,7 +212,7 @@ protected:
     std::vector<int> ports_;
     std::vector<Host> addrs_;
     std::string logDir_;
-    ClientManager cm_;
+    ClientManager<RaftClient> cm_;
 };
 
 TEST_F(RaftTest, SignleTest)
@@ -464,7 +464,7 @@ TEST_F(RaftTest, TestConcurrentStarts2B)
     vector<std::thread> threads(5);
     for (int i = 0; i < threads.size(); i++) {
         threads[i] = std::thread([this, leader]() {
-            ClientManager man(addrs_.size(), RPC_TIMEOUT);
+            ClientManager<RaftClient> man(addrs_.size(), RPC_TIMEOUT);
             for (int j = 0; j < 20; j++) {
                 try {
                     auto* client = man.getClient(leader, addrs_[leader]);

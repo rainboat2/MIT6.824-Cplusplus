@@ -1,4 +1,5 @@
 typedef i32 TermId;
+typedef i32 LogId;
 
 struct Host {
     1: string ip,
@@ -14,7 +15,7 @@ enum ServerState {
 struct RequestVoteParams {
     1: TermId term,
     2: Host candidateId,
-    3: i32 lastLogIndex,
+    3: LogId lastLogIndex,
     4: TermId LastLogTerm
 }
 
@@ -26,17 +27,17 @@ struct RequestVoteResult {
 struct LogEntry {
     1: TermId term,
     2: string command,
-    3: i32 index
+    3: LogId index
 }
 
 
 struct AppendEntriesParams {
     1: TermId term,
     2: Host leaderId,
-    3: i32 prevLogIndex,
+    3: LogId prevLogIndex,
     4: TermId prevLogTerm,
     5: list<LogEntry> entries,
-    6: i32 leaderCommit
+    6: LogId leaderCommit
 }
 
 struct AppendEntriesResult {
@@ -50,15 +51,15 @@ struct AppendEntriesResult {
 struct RaftState {
     1: TermId currentTerm,
     2: Host votedFor,
-    3: i32 commitIndex,
-    4: i32 lastApplied,
+    3: LogId commitIndex,
+    4: LogId lastApplied,
     5: ServerState state,
     6: list<Host> peers,
     7: list<LogEntry> logs
 }
 
 struct StartResult {
-    1: i32 expectedLogIndex,
+    1: LogId expectedLogIndex,
     2: TermId term,
     3: bool isLeader
 }
@@ -77,7 +78,7 @@ struct PutAppendParams {
     3: PutOp op
 }
 
-struct PutAppenRely {
+struct PutAppendReply {
     1: KVStatus status;
 }
 
@@ -101,7 +102,7 @@ service Raft {
 }
 
 service KVRaft extends Raft{
-    PutAppenRely putAppend(1: PutAppendParams params);
+    PutAppendReply putAppend(1: PutAppendParams params);
 
     GetReply get(1: GetParams params);
 }

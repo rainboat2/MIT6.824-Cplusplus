@@ -9,6 +9,7 @@ struct ApplyMsg {
     bool commandValid;
     std::string command;
     int commandIndex;
+
     bool snapshotValid;
     std::vector<char> bytes;
     int snapshotTerm;
@@ -17,7 +18,7 @@ struct ApplyMsg {
 
 class StateMachineIf {
 public:
-    virtual void apply(ApplyMsg& msg) = 0;
+    virtual void apply(ApplyMsg msg) = 0;
 
     virtual void startSnapShot(std::string fileName, std::function<void()> callback) = 0;
 };

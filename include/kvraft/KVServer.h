@@ -1,9 +1,12 @@
 #ifndef KVSERVER_HH
 #define KVSERVER_HH
 
+#include <future>
 #include <memory>
 #include <mutex>
+#include <queue>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include <raft/StateMachine.h>
@@ -13,12 +16,12 @@
 class KVServer : virtual public KVRaftIf,
                  virtual public StateMachineIf {
 public:
-    KVServer(std::vector<Host>& peers, Host me, std::string persisterDir);
+    KVServer(std::vector<Host>& peers, Host me, std::string persisterDir, std::function<void()> stopListenPort);
 
     /*
      * methods for KVRaftIf
      */
-    void putAppend(PutAppenRely& _return, const PutAppendParams& params) override;
+    void putAppend(PutAppendReply& _return, const PutAppendParams& params) override;
     void get(GetReply& _return, const GetParams& params) override;
 
     /*
@@ -32,11 +35,21 @@ public:
     /*
      * methods for state machine
      */
-    void apply(ApplyMsg& msg) override;
+    void apply(ApplyMsg msg) override;
     void startSnapShot(std::string fileName, std::function<void()> callback) override;
 
 private:
+    void putAppend_internal(PutAppendReply& _return, const PutAppendParams& params);
+    void get_internal(GetReply& _return, const GetParams& params);
+
+private:
     std::shared_ptr<RaftHandler> raft_;
+    std::unordered_map<std::string, std::string> um_;
+    std::unordered_map<LogId, std::promise<PutAppendReply>> putWait_;
+    std::unordered_map<LogId, std::promise<GetReply>> getWait_;
+    std::mutex lock_;
+    std::function<void()> stopListenPort_;
+    LogId lastApply_;
 };
 
 inline void KVServer::requestVote(RequestVoteResult& _return, const RequestVoteParams& params)

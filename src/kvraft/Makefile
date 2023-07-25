@@ -8,10 +8,13 @@ KV_SOURCES = KVServer.cpp KVMain.cpp
 KV_OBJECTS = $(addprefix $(OBJECTS_DIR)/, $(KV_SOURCES:cpp=o))
 OBJECTS = $(KV_OBJECTS)
 
-all: make-raft $(BIN)/kvraft
+all: make-raft $(BIN)/kvraft $(LIBDIR)/libkvraft.a
 
 $(BIN)/kvraft: $(OBJECTS)
 	$(CC) $(CPPFLAGS) $(LIBS) $(LDFLAGS) $(INC) -o $@ $(OBJECTS)
+
+$(LIBDIR)/libkvraft.a:
+	$(AR) $@ $(OBJECTS)
 
 $(LIBDIR)/libraft.a:
 	make -C $(ROOTDIR)/src/raft

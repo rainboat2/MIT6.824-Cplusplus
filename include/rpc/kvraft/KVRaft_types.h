@@ -64,6 +64,8 @@ std::string to_string(const KVStatus::type& val);
 
 typedef int32_t TermId;
 
+typedef int32_t LogId;
+
 class Host;
 
 class RequestVoteParams;
@@ -82,7 +84,7 @@ class StartResult;
 
 class PutAppendParams;
 
-class PutAppenRely;
+class PutAppendReply;
 
 class GetParams;
 
@@ -160,7 +162,7 @@ class RequestVoteParams : public virtual ::apache::thrift::TBase {
   virtual ~RequestVoteParams() noexcept;
   TermId term;
   Host candidateId;
-  int32_t lastLogIndex;
+  LogId lastLogIndex;
   TermId LastLogTerm;
 
   _RequestVoteParams__isset __isset;
@@ -169,7 +171,7 @@ class RequestVoteParams : public virtual ::apache::thrift::TBase {
 
   void __set_candidateId(const Host& val);
 
-  void __set_lastLogIndex(const int32_t val);
+  void __set_lastLogIndex(const LogId val);
 
   void __set_LastLogTerm(const TermId val);
 
@@ -272,7 +274,7 @@ class LogEntry : public virtual ::apache::thrift::TBase {
   virtual ~LogEntry() noexcept;
   TermId term;
   std::string command;
-  int32_t index;
+  LogId index;
 
   _LogEntry__isset __isset;
 
@@ -280,7 +282,7 @@ class LogEntry : public virtual ::apache::thrift::TBase {
 
   void __set_command(const std::string& val);
 
-  void __set_index(const int32_t val);
+  void __set_index(const LogId val);
 
   bool operator == (const LogEntry & rhs) const
   {
@@ -333,10 +335,10 @@ class AppendEntriesParams : public virtual ::apache::thrift::TBase {
   virtual ~AppendEntriesParams() noexcept;
   TermId term;
   Host leaderId;
-  int32_t prevLogIndex;
+  LogId prevLogIndex;
   TermId prevLogTerm;
   std::vector<LogEntry>  entries;
-  int32_t leaderCommit;
+  LogId leaderCommit;
 
   _AppendEntriesParams__isset __isset;
 
@@ -344,13 +346,13 @@ class AppendEntriesParams : public virtual ::apache::thrift::TBase {
 
   void __set_leaderId(const Host& val);
 
-  void __set_prevLogIndex(const int32_t val);
+  void __set_prevLogIndex(const LogId val);
 
   void __set_prevLogTerm(const TermId val);
 
   void __set_entries(const std::vector<LogEntry> & val);
 
-  void __set_leaderCommit(const int32_t val);
+  void __set_leaderCommit(const LogId val);
 
   bool operator == (const AppendEntriesParams & rhs) const
   {
@@ -460,8 +462,8 @@ class RaftState : public virtual ::apache::thrift::TBase {
   virtual ~RaftState() noexcept;
   TermId currentTerm;
   Host votedFor;
-  int32_t commitIndex;
-  int32_t lastApplied;
+  LogId commitIndex;
+  LogId lastApplied;
   /**
    * 
    * @see ServerState
@@ -476,9 +478,9 @@ class RaftState : public virtual ::apache::thrift::TBase {
 
   void __set_votedFor(const Host& val);
 
-  void __set_commitIndex(const int32_t val);
+  void __set_commitIndex(const LogId val);
 
-  void __set_lastApplied(const int32_t val);
+  void __set_lastApplied(const LogId val);
 
   void __set_state(const ServerState::type val);
 
@@ -539,13 +541,13 @@ class StartResult : public virtual ::apache::thrift::TBase {
   }
 
   virtual ~StartResult() noexcept;
-  int32_t expectedLogIndex;
+  LogId expectedLogIndex;
   TermId term;
   bool isLeader;
 
   _StartResult__isset __isset;
 
-  void __set_expectedLogIndex(const int32_t val);
+  void __set_expectedLogIndex(const LogId val);
 
   void __set_term(const TermId val);
 
@@ -638,42 +640,42 @@ void swap(PutAppendParams &a, PutAppendParams &b);
 
 std::ostream& operator<<(std::ostream& out, const PutAppendParams& obj);
 
-typedef struct _PutAppenRely__isset {
-  _PutAppenRely__isset() : status(false) {}
+typedef struct _PutAppendReply__isset {
+  _PutAppendReply__isset() : status(false) {}
   bool status :1;
-} _PutAppenRely__isset;
+} _PutAppendReply__isset;
 
-class PutAppenRely : public virtual ::apache::thrift::TBase {
+class PutAppendReply : public virtual ::apache::thrift::TBase {
  public:
 
-  PutAppenRely(const PutAppenRely&) noexcept;
-  PutAppenRely& operator=(const PutAppenRely&) noexcept;
-  PutAppenRely() noexcept
-               : status(static_cast<KVStatus::type>(0)) {
+  PutAppendReply(const PutAppendReply&) noexcept;
+  PutAppendReply& operator=(const PutAppendReply&) noexcept;
+  PutAppendReply() noexcept
+                 : status(static_cast<KVStatus::type>(0)) {
   }
 
-  virtual ~PutAppenRely() noexcept;
+  virtual ~PutAppendReply() noexcept;
   /**
    * 
    * @see KVStatus
    */
   KVStatus::type status;
 
-  _PutAppenRely__isset __isset;
+  _PutAppendReply__isset __isset;
 
   void __set_status(const KVStatus::type val);
 
-  bool operator == (const PutAppenRely & rhs) const
+  bool operator == (const PutAppendReply & rhs) const
   {
     if (!(status == rhs.status))
       return false;
     return true;
   }
-  bool operator != (const PutAppenRely &rhs) const {
+  bool operator != (const PutAppendReply &rhs) const {
     return !(*this == rhs);
   }
 
-  bool operator < (const PutAppenRely & ) const;
+  bool operator < (const PutAppendReply & ) const;
 
   uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
   uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
@@ -681,9 +683,9 @@ class PutAppenRely : public virtual ::apache::thrift::TBase {
   virtual void printTo(std::ostream& out) const;
 };
 
-void swap(PutAppenRely &a, PutAppenRely &b);
+void swap(PutAppendReply &a, PutAppendReply &b);
 
-std::ostream& operator<<(std::ostream& out, const PutAppenRely& obj);
+std::ostream& operator<<(std::ostream& out, const PutAppendReply& obj);
 
 typedef struct _GetParams__isset {
   _GetParams__isset() : key(false) {}

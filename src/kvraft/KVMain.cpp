@@ -32,14 +32,19 @@ int main(int argc, char** argv)
     vector<Host> peers = getPeerAddress(me);
 
     int port = me.port;
-    std::shared_ptr<KVServer> handler(new KVServer(peers, me, FLAGS_log_dir));
-    std::shared_ptr<TProcessor> processor(new KVRaftProcessor(handler));
     std::shared_ptr<TServerTransport> serverTransport(new TServerSocket(port));
     std::shared_ptr<TTransportFactory> transportFactory(new TBufferedTransportFactory());
     std::shared_ptr<TProtocolFactory> protocolFactory(new TBinaryProtocolFactory());
 
+    auto stopProcessRequest_ = [serverTransport](){
+        serverTransport->close();
+    };
+    std::shared_ptr<KVServer> handler(new KVServer(peers, me, FLAGS_log_dir));
+    std::shared_ptr<TProcessor> processor(new KVRaftProcessor(handler));
+
     TThreadedServer server(processor, serverTransport, transportFactory, protocolFactory);
     LOG(INFO) << "start server!" << std::endl;
     server.serve();
+
     return 0;
 }

@@ -16,6 +16,7 @@ rpc:
 	make -C src/$@
 
 clean:
+	rm -rf objs/*
 	make -C src/MapReduce clean
 	make -C src/raft clean 
 	make -C src/kvraft clean

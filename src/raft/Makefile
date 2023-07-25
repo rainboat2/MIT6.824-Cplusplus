@@ -3,7 +3,7 @@
 ROOTDIR     = ../..
 LIBS       := $(LIBS) -lkvraft-rpc
 
-RAFT_SOURCES = raft.cpp ClientManager.cpp Persister.cpp
+RAFT_SOURCES = raft.cpp Persister.cpp
 
 RAFT_OBJECTS = $(addprefix $(OBJECTS_DIR)/, $(RAFT_SOURCES:cpp=o))
 OBJECTS = $(RAFT_OBJECTS)

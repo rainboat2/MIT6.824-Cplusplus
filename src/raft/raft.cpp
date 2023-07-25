@@ -21,8 +21,8 @@
 #include <thrift/transport/TBufferTransports.h>
 #include <thrift/transport/TServerSocket.h>
 
-#include <raft/ClientManager.h>
 #include <raft/raft.h>
+#include <tools/ClientManager.hpp>
 #include <tools/Timer.hpp>
 
 using namespace ::apache::thrift;
@@ -47,9 +47,9 @@ RaftHandler::RaftHandler(vector<Host>& peers, Host me, string persisterDir)
     , me_(std::move(me))
     , inElection_(false)
     , persister_(persisterDir)
-    , cmForHB_(peers.size(), HEART_BEATS_INTERVAL)
-    , cmForRV_(peers.size(), RPC_TIMEOUT)
-    , cmForAE_(peers.size(), RPC_TIMEOUT)
+    , cmForHB_(ClientManager<RaftClient>(peers.size(), HEART_BEATS_INTERVAL))
+    , cmForRV_(ClientManager<RaftClient>(peers.size(), RPC_TIMEOUT))
+    , cmForAE_(ClientManager<RaftClient>(peers.size(), RPC_TIMEOUT))
 {
     switchToFollow();
     /*
@@ -264,7 +264,7 @@ void RaftHandler::switchToLeader()
     std::fill(matchIndex_.begin(), matchIndex_.end(), 0);
 }
 
-LogEntry& RaftHandler::getLogByLogIndex(int logIndex)
+LogEntry& RaftHandler::getLogByLogIndex(LogId logIndex)
 {
     int i = logIndex - logs_.front().index;
     LOG_IF(FATAL, i < 0 || i > logs_.size()) << fmt::format("Unexpected log index {}, cur logs size is {}", logIndex, logs_.size());
@@ -300,7 +300,7 @@ void RaftHandler::handleAEResultFor(int peerIndex, const AppendEntriesParams& pa
         auto matchI = matchIndex_;
         matchI.push_back(logs_.back().index);
         sort(matchI.begin(), matchI.end());
-        int agreeIndex = matchI[matchI.size() / 2];
+        LogId agreeIndex = matchI[matchI.size() / 2];
         if (getLogByLogIndex(agreeIndex).term == currentTerm_)
             commitIndex_ = agreeIndex;
     } else {

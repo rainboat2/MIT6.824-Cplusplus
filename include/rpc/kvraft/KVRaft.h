@@ -23,7 +23,7 @@
 class KVRaftIf : virtual public RaftIf {
  public:
   virtual ~KVRaftIf() {}
-  virtual void putAppend(PutAppenRely& _return, const PutAppendParams& params) = 0;
+  virtual void putAppend(PutAppendReply& _return, const PutAppendParams& params) = 0;
   virtual void get(GetReply& _return, const GetParams& params) = 0;
 };
 
@@ -54,7 +54,7 @@ class KVRaftIfSingletonFactory : virtual public KVRaftIfFactory {
 class KVRaftNull : virtual public KVRaftIf , virtual public RaftNull {
  public:
   virtual ~KVRaftNull() {}
-  void putAppend(PutAppenRely& /* _return */, const PutAppendParams& /* params */) override {
+  void putAppend(PutAppendReply& /* _return */, const PutAppendParams& /* params */) override {
     return;
   }
   void get(GetReply& /* _return */, const GetParams& /* params */) override {
@@ -125,11 +125,11 @@ class KVRaft_putAppend_result {
   }
 
   virtual ~KVRaft_putAppend_result() noexcept;
-  PutAppenRely success;
+  PutAppendReply success;
 
   _KVRaft_putAppend_result__isset __isset;
 
-  void __set_success(const PutAppenRely& val);
+  void __set_success(const PutAppendReply& val);
 
   bool operator == (const KVRaft_putAppend_result & rhs) const
   {
@@ -158,7 +158,7 @@ class KVRaft_putAppend_presult {
 
 
   virtual ~KVRaft_putAppend_presult() noexcept;
-  PutAppenRely* success;
+  PutAppendReply* success;
 
   _KVRaft_putAppend_presult__isset __isset;
 
@@ -281,9 +281,9 @@ class KVRaftClient : virtual public KVRaftIf, public RaftClient {
   std::shared_ptr< ::apache::thrift::protocol::TProtocol> getOutputProtocol() {
     return poprot_;
   }
-  void putAppend(PutAppenRely& _return, const PutAppendParams& params) override;
+  void putAppend(PutAppendReply& _return, const PutAppendParams& params) override;
   void send_putAppend(const PutAppendParams& params);
-  void recv_putAppend(PutAppenRely& _return);
+  void recv_putAppend(PutAppendReply& _return);
   void get(GetReply& _return, const GetParams& params) override;
   void send_get(const GetParams& params);
   void recv_get(GetReply& _return);
@@ -338,7 +338,7 @@ class KVRaftMultiface : virtual public KVRaftIf, public RaftMultiface {
     ifaces_.push_back(iface);
   }
  public:
-  void putAppend(PutAppenRely& _return, const PutAppendParams& params) override {
+  void putAppend(PutAppendReply& _return, const PutAppendParams& params) override {
     size_t sz = ifaces_.size();
     size_t i = 0;
     for (; i < (sz - 1); ++i) {
@@ -374,9 +374,9 @@ class KVRaftConcurrentClient : virtual public KVRaftIf, public RaftConcurrentCli
   std::shared_ptr< ::apache::thrift::protocol::TProtocol> getOutputProtocol() {
     return poprot_;
   }
-  void putAppend(PutAppenRely& _return, const PutAppendParams& params) override;
+  void putAppend(PutAppendReply& _return, const PutAppendParams& params) override;
   int32_t send_putAppend(const PutAppendParams& params);
-  void recv_putAppend(PutAppenRely& _return, const int32_t seqid);
+  void recv_putAppend(PutAppendReply& _return, const int32_t seqid);
   void get(GetReply& _return, const GetParams& params) override;
   int32_t send_get(const GetParams& params);
   void recv_get(GetReply& _return, const int32_t seqid);

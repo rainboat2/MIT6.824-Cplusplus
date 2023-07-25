@@ -7,10 +7,10 @@
 #include <mutex>
 #include <vector>
 
-#include <raft/ClientManager.h>
 #include <raft/Persister.h>
-#include <rpc/kvraft/Raft.h>
 #include <rpc/kvraft/KVRaft_types.h>
+#include <rpc/kvraft/Raft.h>
+#include <tools/ClientManager.hpp>
 #include <tools/ToString.hpp>
 
 constexpr auto NOW = std::chrono::steady_clock::now;
@@ -43,7 +43,7 @@ private:
 
     void switchToLeader();
 
-    LogEntry& getLogByLogIndex(int logIndex);
+    LogEntry& getLogByLogIndex(LogId logIndex);
 
     AppendEntriesParams buildAppendEntriesParamsFor(int peerIndex);
 
@@ -68,12 +68,12 @@ private:
     std::deque<LogEntry> logs_;
 
     // volatile state on all servers
-    int32_t commitIndex_;
-    int32_t lastApplied_;
+    LogId commitIndex_;
+    LogId lastApplied_;
 
     // volatile state on leaders
-    std::vector<int32_t> nextIndex_;
-    std::vector<int32_t> matchIndex_;
+    std::vector<LogId> nextIndex_;
+    std::vector<LogId> matchIndex_;
 
     // some auxiliary data not listed in raft paper
     ServerState::type state_;
@@ -93,9 +93,9 @@ private:
      * Thrift client is thread-unsafe. Considering efficiency and safety,
      * for each kind of task we arrange a ClientManager.
      */
-    ClientManager cmForHB_; // client manager for heart beats
-    ClientManager cmForRV_; //  client manager for request vote
-    ClientManager cmForAE_; //  client manager for  append entries
+    ClientManager<RaftClient> cmForHB_; // client manager for heart beats
+    ClientManager<RaftClient> cmForRV_; //  client manager for request vote
+    ClientManager<RaftClient> cmForAE_; //  client manager for  append entries
 };
 
 #endif
