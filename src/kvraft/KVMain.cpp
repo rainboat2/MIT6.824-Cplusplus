@@ -36,7 +36,7 @@ int main(int argc, char** argv)
     std::shared_ptr<TTransportFactory> transportFactory(new TBufferedTransportFactory());
     std::shared_ptr<TProtocolFactory> protocolFactory(new TBinaryProtocolFactory());
 
-    auto stopProcessRequest_ = [serverTransport](){
+    auto stopProcessRequest_ = [serverTransport]() {
         serverTransport->close();
     };
     std::shared_ptr<KVServer> handler(new KVServer(peers, me, FLAGS_log_dir));

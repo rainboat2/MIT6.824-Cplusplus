@@ -10,10 +10,7 @@ OBJECTS = $(RAFT_OBJECTS)
 
 RAFT_LIB = $(LIBDIR)/libraft.a
 
-all: $(RAFT_LIB) $(BIN)/raft_main
-
-$(BIN)/raft_main: raft_main.cpp $(RAFT_LIB)
-	$(CC) $(CPPFLAGS) $(LIBS) $(LDFLAGS) -lraft $(INC) -o $@ $<
+all: $(RAFT_LIB)
 
 $(RAFT_LIB): $(RPC) $(OBJECTS)
 	$(AR) $@ $(RAFT_OBJECTS)

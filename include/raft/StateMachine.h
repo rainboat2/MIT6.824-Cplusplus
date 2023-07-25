@@ -18,6 +18,8 @@ struct ApplyMsg {
 
 class StateMachineIf {
 public:
+    virtual ~StateMachineIf() {}
+
     virtual void apply(ApplyMsg msg) = 0;
 
     virtual void startSnapShot(std::string fileName, std::function<void()> callback) = 0;

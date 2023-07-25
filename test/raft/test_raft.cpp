@@ -18,6 +18,7 @@
 #include "RaftProcess.hpp"
 
 #include <tools/ClientManager.hpp>
+#include <raft/StateMachine.h>
 
 using namespace apache::thrift;
 using namespace apache::thrift::protocol;

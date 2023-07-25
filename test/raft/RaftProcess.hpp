@@ -1,20 +1,36 @@
 #ifndef RAFT_PROCESS_H
 #define RAFT_PROCESS_H
 
+#include <memory>
 #include <signal.h>
 #include <sstream>
 #include <string>
 #include <unistd.h>
-#include <memory>
 
 #include <fmt/format.h>
 #include <glog/logging.h>
 #include <thrift/protocol/TBinaryProtocol.h>
+#include <thrift/server/TThreadedServer.h>
 #include <thrift/transport/TSocket.h>
 #include <thrift/transport/TTransportUtils.h>
-#include <thrift/server/TThreadedServer.h>
 
 #include <raft/raft.h>
+
+class MockStateMachine : public StateMachineIf {
+public:
+    ~MockStateMachine() { }
+
+    void apply(ApplyMsg msg)
+    {
+        LOG(INFO) << "Mock apply msg: " << msg.command;
+    }
+
+    void startSnapShot(std::string fileName, std::function<void()> callback)
+    {
+        LOG(INFO) << "Mock start snapshot: " << fileName;
+        callback();
+    }
+};
 
 class RaftProcess {
 public:
@@ -39,15 +55,17 @@ public:
         using namespace apache::thrift::transport;
         using namespace ::apache::thrift::server;
 
-        if (pid_ > 0) return;
-        
+        if (pid_ > 0)
+            return;
+
         pid_ = fork();
         if (pid_ == 0) {
             google::InitGoogleLogging(log_dir_.c_str());
             FLAGS_log_dir = log_dir_;
             FLAGS_logbuflevel = -1;
             FLAGS_stderrthreshold = 5;
-            std::shared_ptr<RaftHandler> handler(new RaftHandler(peers_, me_, log_dir_));
+            auto sm = std::make_unique<MockStateMachine>();
+            std::shared_ptr<RaftHandler> handler(new RaftHandler(peers_, me_, log_dir_, sm.get()));
             std::shared_ptr<TProcessor> processor(new RaftProcessor(handler));
             std::shared_ptr<TServerTransport> serverTransport(new TServerSocket(me_.port));
             std::shared_ptr<TTransportFactory> transportFactory(new TBufferedTransportFactory());

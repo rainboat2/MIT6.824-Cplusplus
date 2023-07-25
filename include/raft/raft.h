@@ -8,6 +8,7 @@
 #include <vector>
 
 #include <raft/Persister.h>
+#include <raft/StateMachine.h>
 #include <rpc/kvraft/KVRaft_types.h>
 #include <rpc/kvraft/Raft.h>
 #include <tools/ClientManager.hpp>
@@ -26,7 +27,7 @@ class RaftHandler : virtual public RaftIf {
     friend class Persister;
 
 public:
-    RaftHandler(std::vector<Host>& peers, Host me, std::string persisterDir);
+    RaftHandler(std::vector<Host>& peers, Host me, std::string persisterDir, StateMachineIf* stateMachine);
 
     void requestVote(RequestVoteResult& _return, const RequestVoteParams& params) override;
 
@@ -60,6 +61,8 @@ private:
     void async_sendHeartBeats() noexcept;
 
     void async_sendLogEntries() noexcept;
+
+    void async_applyMsg() noexcept;
 
 private:
     // persisten state on all servers
@@ -96,6 +99,8 @@ private:
     ClientManager<RaftClient> cmForHB_; // client manager for heart beats
     ClientManager<RaftClient> cmForRV_; //  client manager for request vote
     ClientManager<RaftClient> cmForAE_; //  client manager for  append entries
+
+    StateMachineIf* stateMachine_;
 };
 
 #endif

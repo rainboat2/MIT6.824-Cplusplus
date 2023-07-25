@@ -34,7 +34,7 @@ using std::string;
 using std::vector;
 using time_point = std::chrono::steady_clock::time_point;
 
-RaftHandler::RaftHandler(vector<Host>& peers, Host me, string persisterDir)
+RaftHandler::RaftHandler(vector<Host>& peers, Host me, string persisterDir, StateMachineIf* stateMachine)
     : currentTerm_(0)
     , votedFor_(NULL_ADDR)
     , commitIndex_(0)
@@ -50,6 +50,7 @@ RaftHandler::RaftHandler(vector<Host>& peers, Host me, string persisterDir)
     , cmForHB_(ClientManager<RaftClient>(peers.size(), HEART_BEATS_INTERVAL))
     , cmForRV_(ClientManager<RaftClient>(peers.size(), RPC_TIMEOUT))
     , cmForAE_(ClientManager<RaftClient>(peers.size(), RPC_TIMEOUT))
+    , stateMachine_(stateMachine)
 {
     switchToFollow();
     /*
@@ -565,5 +566,11 @@ void RaftHandler::async_sendLogEntries() noexcept
                 });
             }
         }
+    }
+}
+
+void RaftHandler::async_applyMsg() noexcept
+{
+    while (true) {
     }
 }

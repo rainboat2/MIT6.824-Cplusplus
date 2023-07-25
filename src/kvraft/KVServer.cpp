@@ -10,7 +10,7 @@ using std::string;
 using std::vector;
 
 KVServer::KVServer(vector<Host>& peers, Host me, string persisterDir, std::function<void()> stopListenPort)
-    : raft_(std::make_shared<RaftHandler>(peers, me, persisterDir))
+    : raft_(std::make_shared<RaftHandler>(peers, me, persisterDir), this)
     , stopListenPort_(stopListenPort)
 {
 }
@@ -102,7 +102,6 @@ void KVServer::apply(ApplyMsg msg)
 
 void KVServer::startSnapShot(std::string fileName, std::function<void()> callback)
 {
-    
 }
 
 void KVServer::putAppend_internal(PutAppendReply& _return, const PutAppendParams& params)
