@@ -13,7 +13,6 @@ KVServer::KVServer(vector<Host>& peers, Host me, string persisterDir, std::funct
     : raft_(std::make_shared<RaftHandler>(peers, me, persisterDir, this))
     , stopListenPort_(stopListenPort)
 {
-    StateMachineIf* sm = this;
 }
 
 void KVServer::putAppend(PutAppendReply& _return, const PutAppendParams& params)
@@ -77,12 +76,17 @@ void KVServer::apply(ApplyMsg msg)
 
         PutAppendReply reply;
         putAppend_internal(reply, params);
+
         {
             std::lock_guard<std::mutex> guard(lock_);
-            putWait_[msg.commandIndex].set_value(std::move(reply));
-            putWait_.erase(msg.commandIndex);
+            if (putWait_.find(msg.commandIndex) != putWait_.end()) {
+                putWait_[msg.commandIndex].set_value(std::move(reply));
+                putWait_.erase(msg.commandIndex);
+            } else {
+                LOG(INFO) << fmt::format("Command {} is not in the putWait_", msg.commandIndex);
+            }
         }
-        LOG(INFO) << "apply put command: " << msg.command;
+        LOG(INFO) << "Apply put command: " << msg.command;
     } else if (cmd.rfind("GET", 0) == 0) {
         GetParams params;
         string type;
@@ -91,10 +95,14 @@ void KVServer::apply(ApplyMsg msg)
         get_internal(reply, params);
         {
             std::lock_guard<std::mutex> guard(lock_);
-            getWait_[msg.commandIndex].set_value(std::move(reply));
-            getWait_.erase(msg.commandIndex);
+            if (getWait_.find(msg.commandIndex) != getWait_.end()) {
+                getWait_[msg.commandIndex].set_value(std::move(reply));
+                getWait_.erase(msg.commandIndex);
+            } else {
+                LOG(INFO) << fmt::format("Command {} is not in the getWait_", msg.commandIndex);
+            }
         }
-        LOG(INFO) << "apply get command: " << msg.command;
+        LOG(INFO) << "Apply get command: " << msg.command;
     } else {
         LOG(ERROR) << "Invaild command: " << cmd;
     }

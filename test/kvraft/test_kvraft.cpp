@@ -80,3 +80,4 @@ protected:
     std::string logDir_;
     ClientManager<KVRaftClient> cm_;
 };
+

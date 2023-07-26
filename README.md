@@ -11,6 +11,7 @@
 
 1. [MapReduce](https://github.com/rainboat2/MIT6.824-Cplusplus/blob/main/MapReduce.md)
 2. [Raft](https://github.com/rainboat2/MIT6.824-Cplusplus/blob/main/Raft.md)
+3. [KVRaft](https://github.com/rainboat2/MIT6.824-Cplusplus/blob/main/KVRaft.md)
 
 ## 项目依赖
 
@@ -24,6 +25,7 @@ brew install thrift fmt gtest glog gflags
 
 ## 构建项目
 
+本项目使用`make`来作为构建构建，下面分别给出了每个部分的编译
 ### MapReduce
 
 执行如下命令构建MapReduce程序，并运行word count任务
@@ -37,9 +39,16 @@ bash test.sh
 
 ### Raft
 
-执行如下命令构建Raft静态库，运行raft程序参见后续Test章节内容
+执行如下命令构建Raft静态库，运行raft程序参见后续Test章节内容，以及KVRaft相关的内容。
 ```shell
 make raft
+```
+
+### KVRaft
+
+执行如下命令构建KVRaft静态库，以及KVRaft二进制文件
+```shell
+make kvraft
 ```
 
 ## Test
