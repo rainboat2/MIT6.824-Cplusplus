@@ -22,7 +22,7 @@ constexpr auto APPLY_MSG_INTERVAL = std::chrono::milliseconds(10);
 constexpr auto RPC_TIMEOUT = std::chrono::milliseconds(250);
 constexpr int MAX_LOGS_PER_REQUEST = 20;
 constexpr int HEART_BEATS_LOG_COUNT = 1;
-const Host NULL_ADDR;
+const Host NULL_HOST;
 
 class RaftHandler : virtual public RaftIf {
     friend class Persister;

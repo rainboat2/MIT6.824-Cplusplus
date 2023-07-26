@@ -11,11 +11,11 @@ constexpr auto KV_PRC_TIMEOUT = std::chrono::milliseconds(1000);
 
 /*
  * A client to invoke KV rpc operation.
- * KVClient is thread-unsafe.
+ * Notice: KVClerk is thread-unsafe.
  */
-class KVClient {
+class KVClerk {
 public:
-    KVClient(std::vector<Host>& hosts);
+    KVClerk(std::vector<Host>& hosts);
 
     void putAppend(PutAppendReply& _return, const PutAppendParams& params);
 
@@ -24,11 +24,11 @@ public:
 private:
     void putAppendTo(int hostId, PutAppendReply& _return, const PutAppendParams& params);
 
-    void getTo(int hostId, PutAppendReply& _return, const PutAppendParams& params);
+    void getTo(int hostId, GetReply& _return, const GetParams& params);
 
 private:
-    ClientManager<KVRaftClient> clients_;
     std::vector<Host> hosts_;
+    ClientManager<KVRaftClient> clients_;
     int leaderId_;
 };
 

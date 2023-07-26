@@ -1,18 +1,18 @@
 include ../../Global.mk
 
 ROOTDIR = ../..
-LIBS   := $(LIBS) -lkvraft-rpc -lgtest -lgtest_main
+LIBS   := $(LIBS) -lkvraft-rpc -lraft -lkvraft -lgtest -lgtest_main 
 
-KVRAFT_SOURCES = test_kvraft.cpp
+DEPENDENCIES = $(LIB_DIR)/libraft.a $(LIB_DIR)/libkvraft-rpc.a $(LIB_DIR)/libkvraft.a
 
-all: $(BIN)/test_kvraft
+all: make-kvraft $(BIN)/test_kvraft
 
-$(BIN)/test_kvraft: $(KVRAFT_SOURCES)
+$(BIN)/test_kvraft: test_kvraft.cpp $(DEPENDENCIES)
 	$(CC) $(CPPFLAGS) $(LIBS) $(LDFLAGS) $(INC) -o $@ $<
 
 .PHONY: clean clean-log-port make-kvraft run-test
 clean:
-	rm -rf $(BIN)/kvraft_test
+	rm -rf $(BIN)/test_kvraft $(LIB_DIR)/*raft*.a
 
 clean-log-port:
 	rm -rf $(ROOTDIR)/logs/*
@@ -25,5 +25,5 @@ make-kvraft:
 	make -C $(SRC_DIR)/raft
 	make -C $(SRC_DIR)/kvraft
 
-run-test: $(BIN)/test_kvraft make-kvraft
+run-test: make-kvraft $(BIN)/test_kvraft
 	$(BIN)/test_kvraft $(cmd_args)

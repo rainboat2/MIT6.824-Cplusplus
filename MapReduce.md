@@ -6,7 +6,7 @@
 
 ### 整体设计
 
-Master节点负责统筹全局，分配任务。如下为Master的整体设计，本着大道至简的原则，其对woker提供三个函数：
+Master节点负责统筹全局，分配任务。如下为Master的整体设计，本着大道至简的原则，Master对外提供的接口尽可能少，其其对woker只提供如下三个函数：
 
 ```C++
 class MasterHandler : virtual public MasterIf {
@@ -39,7 +39,6 @@ private:
     std::function<void(void)> exitServer_;
 };
 ```
-
 
 
 ### 并发控制

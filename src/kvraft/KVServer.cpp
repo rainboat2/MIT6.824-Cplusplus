@@ -64,6 +64,7 @@ void KVServer::get(GetReply& _return, const GetParams& params)
 
 void KVServer::apply(ApplyMsg msg)
 {
+    LOG(INFO) << "ApplyMsg: " << msg.commandIndex;
     auto& cmd = msg.command;
     std::istringstream iss(cmd.c_str());
 
@@ -104,7 +105,7 @@ void KVServer::apply(ApplyMsg msg)
         }
         LOG(INFO) << "Apply get command: " << msg.command;
     } else {
-        LOG(ERROR) << "Invaild command: " << cmd;
+        LOG(ERROR) << fmt::format("Invaid command: {}, commandIndex: {}", msg.command, msg.commandIndex);
     }
     lastApply_ = msg.commandIndex;
 }

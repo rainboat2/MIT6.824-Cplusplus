@@ -36,7 +36,7 @@ void Persister::saveRaftState(RaftHandler* rf)
     // checkState(rf);
     // ofs << rf->currentTerm_ << '\n';
 
-    // if (rf->votedFor_ != NULL_ADDR)
+    // if (rf->votedFor_ != NULL_HOST)
     //     ofs << rf->votedFor_.ip << ' ' << rf->votedFor_.port << '\n';
     // else
     //     ofs << "-1.-1.-1.-1" << ' ' << -1 << '\n';
@@ -60,7 +60,7 @@ void Persister::loadRaftState(RaftHandler* rf)
     // ifs >> rf->currentTerm_;
     // ifs >> rf->votedFor_.ip >> rf->votedFor_.port;
     // if (rf->votedFor_.port < 0)
-    //     rf->votedFor_ = NULL_ADDR;
+    //     rf->votedFor_ = NULL_HOST;
     // ifs.get(newLine);
 
     // int logSize;
@@ -80,7 +80,7 @@ void Persister::loadRaftState(RaftHandler* rf)
     //  */
     // if (!checkState(rf)) {
     //     rf->currentTerm_ = 0;
-    //     rf->votedFor_ = NULL_ADDR;
+    //     rf->votedFor_ = NULL_HOST;
     //     rf->logs_.clear();
     //     rf->logs_.emplace_back();
     //     ifs.close();

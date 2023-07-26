@@ -36,7 +36,7 @@ using time_point = std::chrono::steady_clock::time_point;
 
 RaftHandler::RaftHandler(vector<Host>& peers, Host me, string persisterDir, StateMachineIf* stateMachine)
     : currentTerm_(0)
-    , votedFor_(NULL_ADDR)
+    , votedFor_(NULL_HOST)
     , commitIndex_(0)
     , lastApplied_(0)
     , nextIndex_(vector<int32_t>(peers.size()))
@@ -76,7 +76,7 @@ void RaftHandler::requestVote(RequestVoteResult& _return, const RequestVoteParam
     std::lock_guard<std::mutex> guard(raftLock_);
 
     if (params.term > currentTerm_) {
-        votedFor_ = NULL_ADDR;
+        votedFor_ = NULL_HOST;
         if (state_ != ServerState::FOLLOWER)
             switchToFollow();
         currentTerm_ = params.term;
@@ -90,7 +90,7 @@ void RaftHandler::requestVote(RequestVoteResult& _return, const RequestVoteParam
         return;
     }
 
-    if (params.term == currentTerm_ && votedFor_ != NULL_ADDR && votedFor_ != params.candidateId) {
+    if (params.term == currentTerm_ && votedFor_ != NULL_HOST && votedFor_ != params.candidateId) {
         LOG(INFO) << fmt::format("Receive a vote request from {}, but already voted to {}, reject it.",
             to_string(params.candidateId), to_string(votedFor_));
         _return.term = currentTerm_;
@@ -136,7 +136,7 @@ void RaftHandler::appendEntries(AppendEntriesResult& _return, const AppendEntrie
         LOG(INFO) << fmt::format("Received logs from higher term leader {}, term: {}, currentTerm: {}",
             to_string(params.leaderId), params.term, currentTerm_);
         currentTerm_ = params.term;
-        votedFor_ = NULL_ADDR;
+        votedFor_ = NULL_HOST;
         if (state_ != ServerState::FOLLOWER) {
             switchToFollow();
         }
@@ -244,7 +244,7 @@ void RaftHandler::switchToFollow()
         this->async_checkLeaderStatus();
     });
     cl.detach();
-    votedFor_ = NULL_ADDR;
+    votedFor_ = NULL_HOST;
 }
 
 void RaftHandler::switchToCandidate()
@@ -255,7 +255,7 @@ void RaftHandler::switchToCandidate()
         this->async_startElection();
     });
     se.detach();
-    votedFor_ = NULL_ADDR;
+    votedFor_ = NULL_HOST;
 }
 
 void RaftHandler::switchToLeader()
@@ -266,7 +266,7 @@ void RaftHandler::switchToLeader()
         this->async_sendHeartBeats();
     });
     hb.detach();
-    votedFor_ = NULL_ADDR;
+    votedFor_ = NULL_HOST;
     std::fill(nextIndex_.begin(), nextIndex_.end(), logs_.back().index + 1);
     std::fill(matchIndex_.begin(), matchIndex_.end(), 0);
 }
@@ -585,13 +585,14 @@ void RaftHandler::async_applyMsg() noexcept
             {
                 std::lock_guard<std::mutex> guard(raftLock_);
                 // we only copy 20 logs each time to avoid holding the lock for too long
-                for (int i = lastApplied_; i <= std::min(lastApplied_ + 20, commitIndex_); i++) {
+                for (int i = lastApplied_ + 1; i <= std::min(lastApplied_ + 20, commitIndex_); i++) {
                     logsForApply.push(getLogByLogIndex(i));
                 }
             }
 
             if (logsForApply.empty())
                 break;
+            LOG(INFO) << fmt::format("Gather {} logs to apply!", logsForApply.size());
 
             const int N = logsForApply.size();
             while (!logsForApply.empty()) {

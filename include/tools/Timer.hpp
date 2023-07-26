@@ -19,15 +19,19 @@ public:
 
     void msg(std::string m)
     {
-        auto end = std::chrono::steady_clock::now();
-        auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(end - start_);
+        auto dur = duration();
         LOG(INFO) << m << " Used: " << dur.count() << "ms";
+    }
+
+    std::chrono::milliseconds duration() {
+        auto cur = std::chrono::steady_clock::now();
+        auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(cur - start_);
+        return dur;
     }
 
     ~Timer()
     {
-        auto end = std::chrono::steady_clock::now();
-        auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(end - start_);
+        auto dur = duration();
         LOG(INFO) << end_msg_ << " Used: " << dur.count() << "ms";
     }
 

@@ -52,15 +52,15 @@ protected:
     void initRafts(int num)
     {
         EXPECT_GE(ports_.size(), num);
-        addrs_ = vector<Host>(num);
+        hosts_ = vector<Host>(num);
         for (int i = 0; i < num; i++) {
-            addrs_[i].ip = "127.0.0.1";
-            addrs_[i].port = ports_[i];
+            hosts_[i].ip = "127.0.0.1";
+            hosts_[i].port = ports_[i];
         }
 
         for (int i = 0; i < num; i++) {
-            vector<Host> peers = addrs_;
-            Host me = addrs_[i];
+            vector<Host> peers = hosts_;
+            Host me = hosts_[i];
             peers.erase(peers.begin() + i);
             string dirName = fmt::format("{}/raft{}", logDir_, i + 1);
             rafts_.emplace_back(peers, me, i + 1, dirName);
@@ -104,7 +104,7 @@ protected:
     {
         StartResult rs;
         try {
-            auto* client = cm_.getClient(raftId, addrs_[raftId]);
+            auto* client = cm_.getClient(raftId, hosts_[raftId]);
             client->start(rs, cmd);
         } catch (TException& tx) {
             cm_.setInvalid(raftId);
@@ -197,11 +197,11 @@ protected:
     {
         RaftState st;
         try {
-            auto* client = cm_.getClient(i, addrs_[i]);
+            auto* client = cm_.getClient(i, hosts_[i]);
             client->getState(st);
         } catch (TException& tx) {
             st = INVALID_RAFTSTATE;
-            auto err = fmt::format("Get State of {} failed! {};", to_string(addrs_[i]), tx.what());
+            auto err = fmt::format("Get State of {} failed! {};", to_string(hosts_[i]), tx.what());
             outputErrmsg(err.c_str());
             cm_.setInvalid(i);
         }
@@ -211,7 +211,7 @@ protected:
 protected:
     std::vector<RaftProcess> rafts_;
     std::vector<int> ports_;
-    std::vector<Host> addrs_;
+    std::vector<Host> hosts_;
     std::string logDir_;
     ClientManager<RaftClient> cm_;
 };
@@ -465,10 +465,10 @@ TEST_F(RaftTest, TestConcurrentStarts2B)
     vector<std::thread> threads(5);
     for (int i = 0; i < threads.size(); i++) {
         threads[i] = std::thread([this, leader]() {
-            ClientManager<RaftClient> man(addrs_.size(), RPC_TIMEOUT);
+            ClientManager<RaftClient> man(hosts_.size(), RPC_TIMEOUT);
             for (int j = 0; j < 20; j++) {
                 try {
-                    auto* client = man.getClient(leader, addrs_[leader]);
+                    auto* client = man.getClient(leader, hosts_[leader]);
                     StartResult rs;
                     client->start(rs, uniqueCmd());
                 } catch (TException& tx) {

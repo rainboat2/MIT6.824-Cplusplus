@@ -3,21 +3,20 @@
 ROOTDIR = ../..
 LIBS    := $(LIBS) -lkvraft-rpc -lraft
 
-KV_SOURCES = KVServer.cpp KVMain.cpp KVClient.cpp
+KV_SOURCES = KVServer.cpp KVClerk.cpp
 
 KV_OBJECTS = $(addprefix $(OBJECTS_DIR)/, $(KV_SOURCES:cpp=o))
 OBJECTS = $(KV_OBJECTS)
 
-all: make-raft $(BIN)/kvraft $(LIB_DIR)/libkvraft.a
+DEPENDENCIES = $(LIB_DIR)/libraft.a $(LIB_DIR)/libkvraft-rpc.a
 
-$(BIN)/kvraft: $(OBJECTS)
-	$(CC) $(CPPFLAGS) $(LIBS) $(LDFLAGS) $(INC) -o $@ $(OBJECTS)
+all: $(BIN)/kvraft $(LIB_DIR)/libkvraft.a
 
-$(LIB_DIR)/libkvraft.a:
+$(BIN)/kvraft: $(OBJECTS) $(DEPENDENCIES)
+	$(CC) $(CPPFLAGS) $(LIBS) $(LDFLAGS) $(INC) -o $@ $(OBJECTS) KVMain.cpp
+
+$(LIB_DIR)/libkvraft.a: $(OBJECTS) $(DEPENDENCIES)
 	$(AR) $@ $(OBJECTS)
-
-$(LIB_DIR)/libraft.a:
-	make -C $(SRC_DIR)/raft
 
 # generate object file
 -include $(OBJECTS:.o=.d)
@@ -33,10 +32,7 @@ $(OBJECTS_DIR)/%.d: %.cpp
 $(OBJECTS): %.o:
 	$(CC) $(CPPFLAGS) $(INC) -c $< -o $@
 
-.PHONY: clean make-raft
+.PHONY: clean
 clean:
 	make -C $(SRC_DIR)/raft clean
-	rm -rf $(BIN)/kvraft $(RPC)
-
-make-raft:
-	make -C $(SRC_DIR)/raft
+	rm -rf $(BIN)/kvraft $(OBJECTS) $(BIN)/kvraft $(LIB_DIR)/libkvraft.a
