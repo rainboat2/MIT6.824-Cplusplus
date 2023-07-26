@@ -3,7 +3,7 @@
 ROOTDIR = ../..
 LIBS    := $(LIBS) -lkvraft-rpc -lraft
 
-KV_SOURCES = KVServer.cpp KVMain.cpp
+KV_SOURCES = KVServer.cpp KVMain.cpp KVClient.cpp
 
 KV_OBJECTS = $(addprefix $(OBJECTS_DIR)/, $(KV_SOURCES:cpp=o))
 OBJECTS = $(KV_OBJECTS)
