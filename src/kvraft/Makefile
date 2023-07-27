@@ -8,11 +8,11 @@ KV_SOURCES = KVServer.cpp KVClerk.cpp
 KV_OBJECTS = $(addprefix $(OBJECTS_DIR)/, $(KV_SOURCES:cpp=o))
 OBJECTS = $(KV_OBJECTS)
 
-DEPENDENCIES = $(LIB_DIR)/libraft.a $(LIB_DIR)/libkvraft-rpc.a
+DEPENDENCIES = $(LIB_DIR)/libraft.a $(LIB_DIR)/libkvraft-rpc.a 
 
 all: $(BIN)/kvraft $(LIB_DIR)/libkvraft.a
 
-$(BIN)/kvraft: $(OBJECTS) $(DEPENDENCIES)
+$(BIN)/kvraft: $(OBJECTS) $(DEPENDENCIES) 
 	$(CC) $(CPPFLAGS) $(LIBS) $(LDFLAGS) $(INC) -o $@ $(OBJECTS) KVMain.cpp
 
 $(LIB_DIR)/libkvraft.a: $(OBJECTS) $(DEPENDENCIES)

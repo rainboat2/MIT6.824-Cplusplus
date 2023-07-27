@@ -62,7 +62,7 @@ RaftHandler::RaftHandler(vector<Host>& peers, Host me, string persisterDir, Stat
         this->async_sendLogEntries();
     });
     ae.detach();
-    
+
     std::thread applier([this]() {
         this->async_applyMsg();
     });
@@ -76,10 +76,8 @@ void RaftHandler::requestVote(RequestVoteResult& _return, const RequestVoteParam
     std::lock_guard<std::mutex> guard(raftLock_);
 
     if (params.term > currentTerm_) {
-        votedFor_ = NULL_HOST;
         if (state_ != ServerState::FOLLOWER)
             switchToFollow();
-        currentTerm_ = params.term;
     }
 
     if (params.term < currentTerm_) {
@@ -244,7 +242,6 @@ void RaftHandler::switchToFollow()
         this->async_checkLeaderStatus();
     });
     cl.detach();
-    votedFor_ = NULL_HOST;
 }
 
 void RaftHandler::switchToCandidate()
@@ -255,7 +252,6 @@ void RaftHandler::switchToCandidate()
         this->async_startElection();
     });
     se.detach();
-    votedFor_ = NULL_HOST;
 }
 
 void RaftHandler::switchToLeader()
@@ -266,7 +262,6 @@ void RaftHandler::switchToLeader()
         this->async_sendHeartBeats();
     });
     hb.detach();
-    votedFor_ = NULL_HOST;
     std::fill(nextIndex_.begin(), nextIndex_.end(), logs_.back().index + 1);
     std::fill(matchIndex_.begin(), matchIndex_.end(), 0);
 }
@@ -510,49 +505,48 @@ void RaftHandler::async_sendLogEntries() noexcept
              */
             std::unique_lock<std::mutex> logLock(raftLock_);
             sendEntries_.wait(logLock);
-            LOG(INFO) << "async_sendLogEntries is notified";
             peersForAE = peers_;
             logLock.unlock();
         }
 
+        LOG(INFO) << "async_sendLogEntries is notified";
         bool finish = false;
         while (!finish) {
+            vector<AppendEntriesParams> paramsList(peersForAE.size());
+            vector<AppendEntriesResult> resultList(peersForAE.size());
+            vector<int> sendSuccess(peersForAE.size(), true);
             {
                 std::lock_guard<std::mutex> guard(raftLock_);
                 if (state_ != ServerState::LEADER)
                     break;
+                for (int i = 0; i < peersForAE.size(); i++) {
+                    paramsList[i] = buildAppendEntriesParamsFor(i);
+                    gatherLogsFor(i, paramsList[i]);
+                }
             }
+
             LOG(INFO) << "Start to send logs to all peers. peers size: " << peersForAE.size();
             vector<std::thread> threads(peersForAE.size());
             for (int i = 0; i < peersForAE.size(); i++) {
-                threads[i] = std::thread([i, this, &peersForAE]() {
-                    AppendEntriesParams params;
-                    int logsNum;
-                    {
-                        std::lock_guard<std::mutex> guard(raftLock_);
-                        params = buildAppendEntriesParamsFor(i);
-                        logsNum = gatherLogsFor(i, params);
-                    }
+                threads[i] = std::thread([i, this, &peersForAE, &paramsList, &resultList, &sendSuccess]() {
+                    AppendEntriesParams& params = paramsList[i];
 
-                    if (logsNum == 0) {
+                    if (params.entries.empty()) {
                         LOG(INFO) << "No logs need to send to: " << peersForAE[i];
                         return;
                     }
 
-                    AppendEntriesResult rs;
+                    AppendEntriesResult& rs = resultList[i];
                     try {
                         auto* client_ = cmForAE_.getClient(i, peersForAE[i]);
                         client_->appendEntries(rs, params);
-                        LOG(INFO) << fmt::format("Send {} logs to {}", logsNum, to_string(peersForAE[i]))
+                        LOG(INFO) << fmt::format("Send {} logs to {}", params.entries.size(), to_string(peersForAE[i]))
                                   << fmt::format(", params: (prevLogIndex={}, prevLogTerm={}, commit={})",
                                          params.prevLogIndex, params.prevLogTerm, params.leaderCommit)
                                   << ", the result is " << rs;
-                        {
-                            std::lock_guard<std::mutex> guard(raftLock_);
-                            handleAEResultFor(i, params, rs);
-                        }
                     } catch (TException& tx) {
                         cmForAE_.setInvalid(i);
+                        sendSuccess[i] = false;
                         LOG(INFO) << fmt::format("Send logs to {} failed: {}", to_string(peersForAE[i]), tx.what());
                     }
                 });
@@ -564,6 +558,11 @@ void RaftHandler::async_sendLogEntries() noexcept
 
             {
                 std::lock_guard<std::mutex> guard(raftLock_);
+
+                for (int i = 0; i < peersForAE.size(); i++) {
+                    if (sendSuccess[i])
+                        handleAEResultFor(i, paramsList[i], resultList[i]);
+                }
                 /*
                  * Exit this loop if we send all logs successfully
                  */

@@ -14,6 +14,7 @@
 #include <kvraft/KVServer.h>
 #include <rpc/kvraft/KVRaft.h>
 #include <tools/ClientManager.hpp>
+#include <tools/Timer.hpp>
 
 #include "KVRaftProcess.hpp"
 
@@ -98,6 +99,7 @@ TEST_F(KVRaftTest, TestBasic3A)
     PutAppendParams put_p;
     put_p.key = "a";
     put_p.value = "1";
+    put_p.op = PutOp::PUT;
     PutAppendReply put_r;
     clerk.putAppend(put_r, put_p);
 
@@ -117,4 +119,25 @@ TEST_F(KVRaftTest, TestBasic3A)
     clerk.get(get_r, get_p);
     EXPECT_EQ(get_r.status, KVStatus::OK);
     EXPECT_EQ(get_r.value, get_r.value);
+}
+
+TEST_F(KVRaftTest, TestSpeed3A)
+{
+    const int KV_NUM = 3;
+    const int CMD_NUM = 500;
+    initKVRafts(KV_NUM);
+    auto clerk = buildKVClerk(KV_NUM);
+
+    Timer t;
+    PutAppendParams put_p;
+    PutAppendReply put_r;
+    put_p.op = PutOp::PUT;
+    for (int i = 1; i <= CMD_NUM; i++) {
+        put_p.key = "key" + std::to_string(i);
+        put_p.value = "val" + std::to_string(i);
+        clerk.putAppend(put_r, put_p);
+        EXPECT_EQ(put_r.status, KVStatus::OK);
+    }
+    auto ms_per_cmd = t.duration() / CMD_NUM;
+    EXPECT_LT(ms_per_cmd, HEART_BEATS_INTERVAL / 3);
 }

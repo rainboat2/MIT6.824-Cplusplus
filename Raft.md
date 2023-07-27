@@ -35,6 +35,56 @@ void RaftHandler::async_checkLeaderStatus()
 }
 ```
 
+### RequestVote
+
+如下为请求投票的的逻辑，大致的逻辑都已经在注释里面标注了出来，实现的过程中需要着重注意的点：
+
+1. 在收到高任期的选票时，千万不要更新本节点的任期。否则在投票之后，选出新leader的这段时间内，如果本节点超时，会提升任期开启新一轮的选举，直接导致本轮选举的失败。
+
+```c++
+
+void RaftHandler::requestVote(RequestVoteResult& _return, const RequestVoteParams& params)
+{
+    std::lock_guard<std::mutex> guard(raftLock_);
+	
+  	// 来自高任期节点的选票请求，接受！
+    if (params.term > currentTerm_) {
+        if (state_ != ServerState::FOLLOWER)
+            switchToFollow();
+    }
+
+  	// 来自低任期节点的选票请求，直接否决！
+    if (params.term < currentTerm_) {
+        LOG(INFO) << fmt::format("Out of fashion vote request from {}, term: {}, currentTerm: {}",
+            to_string(params.candidateId), params.term, currentTerm_);
+        _return.term = currentTerm_;
+        _return.voteGranted = false;
+        return;
+    }
+		
+  	// 来自当前任期的选票请求，如果没有投票，接受！
+    if (params.term == currentTerm_ && votedFor_ != NULL_HOST && votedFor_ != params.candidateId) {
+        LOG(INFO) << fmt::format("Receive a vote request from {}, but already voted to {}, reject it.",
+            to_string(params.candidateId), to_string(votedFor_));
+        _return.term = currentTerm_;
+        _return.voteGranted = false;
+        return;
+    }
+
+		// 投票前需要判断一下谁的日志更新，不接受日志更旧的节点的投票请求
+    auto lastLog = logs_.back();
+    if (lastLog.term < params.LastLogTerm || (lastLog.term == params.LastLogTerm && lastLog.index < params.lastLogIndex)) {
+        LOG(INFO) << fmt::format("Receive a vote request from {} with outdate logs, reject it.", to_string(params.candidateId));
+    }
+
+    votedFor_ = params.candidateId;
+    _return.voteGranted = true;
+    _return.term = currentTerm_;
+    persister_.saveRaftState(this);
+}
+```
+
+
 
 ### 选举流程
 

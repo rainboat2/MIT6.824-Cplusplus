@@ -10,11 +10,19 @@
 
 class Timer {
 public:
-    Timer(std::string start_msg, std::string end_msg)
-        : end_msg_(std::move(end_msg))
+    Timer()
+        : printMsg_(false)
+        , start_(std::chrono::steady_clock::now())
     {
-        start_ = std::chrono::steady_clock::now();
-        LOG(INFO) << start_msg;
+    }
+
+    Timer(bool printMsg, std::string start_msg, std::string end_msg)
+        : printMsg_(false)
+        , start_(std::chrono::steady_clock::now())
+        , end_msg_(std::move(end_msg))
+    {
+        if (printMsg)
+            LOG(INFO) << start_msg;
     }
 
     void msg(std::string m)
@@ -23,7 +31,8 @@ public:
         LOG(INFO) << m << " Used: " << dur.count() << "ms";
     }
 
-    std::chrono::milliseconds duration() {
+    std::chrono::milliseconds duration()
+    {
         auto cur = std::chrono::steady_clock::now();
         auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(cur - start_);
         return dur;
@@ -31,11 +40,14 @@ public:
 
     ~Timer()
     {
-        auto dur = duration();
-        LOG(INFO) << end_msg_ << " Used: " << dur.count() << "ms";
+        if (printMsg_) {
+            auto dur = duration();
+            LOG(INFO) << end_msg_ << " Used: " << dur.count() << "ms";
+        }
     }
 
 private:
+    bool printMsg_;
     std::chrono::steady_clock::time_point start_;
     std::string end_msg_;
 };

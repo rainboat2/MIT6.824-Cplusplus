@@ -78,16 +78,24 @@ protected:
 
     vector<int> findLeaders()
     {
-        std::this_thread::sleep_for(MAX_ELECTION_TIMEOUT * 2);
+        int retry = 2;
         vector<int> leaders;
-        for (int i = 0; i < rafts_.size(); i++) {
-            auto st = getState(i);
+        while (retry-- > 0) {
+            leaders.clear();
+            for (int i = 0; i < rafts_.size(); i++) {
+                auto st = getState(i);
+                if (st == INVALID_RAFTSTATE)
+                    continue;
 
-            if (st == INVALID_RAFTSTATE)
-                continue;
+                if (st.state == ServerState::LEADER) {
+                    leaders.push_back(i);
+                }
+            }
 
-            if (st.state == ServerState::LEADER) {
-                leaders.push_back(i);
+            if (leaders.size() != 1) {
+                std::this_thread::sleep_for(MAX_ELECTION_TIMEOUT);
+            } else {
+                return leaders;
             }
         }
         return leaders;
@@ -294,7 +302,7 @@ TEST_F(RaftTest, TestManyElections2A)
     std::random_device rd;
     std::uniform_int_distribution<int> r(0, 6);
 
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 10; i++) {
         array<int, 3> rfs = { r(rd), r(rd), r(rd) };
         for (int j : rfs) {
             rafts_[j].killRaft();
@@ -305,7 +313,7 @@ TEST_F(RaftTest, TestManyElections2A)
         for (int j : rfs) {
             rafts_[j].start();
         }
-        std::this_thread::sleep_for(MAX_ELECTION_TIMEOUT);
+        std::this_thread::sleep_for(MIN_ELECTION_TIMEOUT);
     }
 
     EXPECT_EQ(findLeaders().size(), 1);
