@@ -16,18 +16,20 @@ public:
     {
     }
 
-    Timer(std::string start_msg, std::string end_msg)
-        : printMsg_(true)
+    Timer(std::string start_msg, std::string end_msg, bool printMsg = true)
+        : printMsg_(printMsg)
         , start_(std::chrono::steady_clock::now())
         , end_msg_(std::move(end_msg))
     {
         LOG(INFO) << start_msg;
     }
 
-    void msg(std::string m)
+    void checkpoint(std::string m)
     {
-        auto dur = duration();
-        LOG(INFO) << m << " Used: " << dur.count() << "ms";
+        if (printMsg_) {
+            auto dur = duration();
+            LOG(INFO) << m << " Used: " << dur.count() << "ms";
+        }
     }
 
     std::chrono::milliseconds duration()

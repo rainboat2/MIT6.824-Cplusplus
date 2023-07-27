@@ -117,7 +117,9 @@ void RaftHandler::requestVote(RequestVoteResult& _return, const RequestVoteParam
 
 void RaftHandler::appendEntries(AppendEntriesResult& _return, const AppendEntriesParams& params)
 {
+    // Timer t("Start appendEntries", "Finish appendEntries", !params.entries.empty());
     std::lock_guard<std::mutex> guard(raftLock_);
+    // t.checkpoint("Get lock");
 
     _return.success = false;
     _return.term = currentTerm_;
@@ -546,7 +548,7 @@ void RaftHandler::async_sendLogEntries() noexcept
                         LOG(INFO) << fmt::format("Send {} logs to {}", params.entries.size(), to_string(peersForAE[i]))
                                   << fmt::format(", params: (prevLogIndex={}, prevLogTerm={}, commit={})",
                                          params.prevLogIndex, params.prevLogTerm, params.leaderCommit)
-                                  << ", the result is " << rs;
+                                  << fmt::format(", the result: (success: {}, term: {})", rs.success, rs.term);
                     } catch (TException& tx) {
                         cmForAE_.setInvalid(i);
                         sendSuccess[i] = false;
@@ -561,7 +563,6 @@ void RaftHandler::async_sendLogEntries() noexcept
 
             {
                 std::lock_guard<std::mutex> guard(raftLock_);
-
                 for (int i = 0; i < peersForAE.size(); i++) {
                     if (sendSuccess[i])
                         handleAEResultFor(i, paramsList[i], resultList[i]);

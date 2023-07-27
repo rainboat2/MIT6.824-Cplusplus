@@ -1,5 +1,6 @@
 #include <cstdlib>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <fmt/format.h>
@@ -23,6 +24,7 @@ using namespace apache::thrift::protocol;
 using namespace apache::thrift::transport;
 
 using std::string;
+using std::thread;
 using std::vector;
 
 static void outputErrmsg(const char* msg)
@@ -140,4 +142,42 @@ TEST_F(KVRaftTest, TestSpeed3A)
     }
     auto ms_per_cmd = t.duration() / CMD_NUM;
     EXPECT_LT(ms_per_cmd, HEART_BEATS_INTERVAL / 3);
+}
+
+TEST_F(KVRaftTest, TestConcurrent3A)
+{
+    const int KV_NUM = 3, CLERK_NUM = 5;
+    initKVRafts(KV_NUM);
+    vector<KVClerk> clerks;
+    for (int i = 0; i < CLERK_NUM; i++)
+        clerks.push_back(buildKVClerk(KV_NUM));
+
+    vector<thread> threads(CLERK_NUM);
+    for (int i = 0; i < threads.size(); i++) {
+        threads[i] = thread([i, &clerks]() {
+            auto& clerk = clerks[i];
+            PutAppendParams put_p;
+            PutAppendReply put_r;
+            string prefix = std::to_string((char)'a' + i);
+            for (int j = 0; j < 100; j++) {
+                put_p.key = prefix + std::to_string(j);
+                put_p.value = prefix + std::to_string(j);
+                clerk.putAppend(put_r, put_p);
+                EXPECT_EQ(put_r.status, KVStatus::OK);
+            }
+
+            GetParams get_p;
+            GetReply get_r;
+            for (int j = 0; j < 100; j++) {
+                get_p.key = prefix + std::to_string(j);
+                clerk.get(get_r, get_p);
+                EXPECT_EQ(get_r.status, KVStatus::OK);
+                EXPECT_EQ(get_r.value, prefix + std::to_string(j));
+            }
+        });
+    }
+
+    for (int i = 0; i < threads.size(); i++) {
+        threads[i].join();
+    }
 }
