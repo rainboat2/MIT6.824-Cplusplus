@@ -78,6 +78,9 @@ void RaftHandler::requestVote(RequestVoteResult& _return, const RequestVoteParam
     if (params.term > currentTerm_) {
         if (state_ != ServerState::FOLLOWER)
             switchToFollow();
+        currentTerm_ = params.term;
+        votedFor_ = NULL_HOST;
+        lastSeenLeader_ = NOW();
     }
 
     if (params.term < currentTerm_) {

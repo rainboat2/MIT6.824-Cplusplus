@@ -16,13 +16,12 @@ public:
     {
     }
 
-    Timer(bool printMsg, std::string start_msg, std::string end_msg)
-        : printMsg_(false)
+    Timer(std::string start_msg, std::string end_msg)
+        : printMsg_(true)
         , start_(std::chrono::steady_clock::now())
         , end_msg_(std::move(end_msg))
     {
-        if (printMsg)
-            LOG(INFO) << start_msg;
+        LOG(INFO) << start_msg;
     }
 
     void msg(std::string m)

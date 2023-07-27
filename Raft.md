@@ -39,7 +39,7 @@ void RaftHandler::async_checkLeaderStatus()
 
 如下为请求投票的的逻辑，大致的逻辑都已经在注释里面标注了出来，实现的过程中需要着重注意的点：
 
-1. 在收到高任期的选票时，千万不要更新本节点的任期。否则在投票之后，选出新leader的这段时间内，如果本节点超时，会提升任期开启新一轮的选举，直接导致本轮选举的失败。
+1. 在收到高任期的选票时，要重置当前的节点的选举超时。否则在投票之后，选出新leader的这段时间内，如果本节点超时，会提升任期开启新一轮的选举，直接导致本轮选举的失败。
 
 ```c++
 
@@ -51,6 +51,9 @@ void RaftHandler::requestVote(RequestVoteResult& _return, const RequestVoteParam
     if (params.term > currentTerm_) {
         if (state_ != ServerState::FOLLOWER)
             switchToFollow();
+        currentTerm_ = params.term;
+        votedFor_ = NULL_HOST;
+        lastSeenLeader_ = NOW();
     }
 
   	// 来自低任期节点的选票请求，直接否决！

@@ -2,6 +2,7 @@
 
 #include <kvraft/KVServer.h>
 #include <rpc/kvraft/KVRaft_types.h>
+#include <tools/Timer.hpp>
 
 #include <fmt/format.h>
 #include <glog/logging.h>
