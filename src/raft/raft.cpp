@@ -117,9 +117,7 @@ void RaftHandler::requestVote(RequestVoteResult& _return, const RequestVoteParam
 
 void RaftHandler::appendEntries(AppendEntriesResult& _return, const AppendEntriesParams& params)
 {
-    // Timer t("Start appendEntries", "Finish appendEntries", !params.entries.empty());
     std::lock_guard<std::mutex> guard(raftLock_);
-    // t.checkpoint("Get lock");
 
     _return.success = false;
     _return.term = currentTerm_;
@@ -187,7 +185,11 @@ void RaftHandler::appendEntries(AppendEntriesResult& _return, const AppendEntrie
         }
     }
 
-    commitIndex_ = std::min(params.leaderCommit, logs_.back().index);
+    int newCommitIndex = std::min(params.leaderCommit, logs_.back().index);
+    if (newCommitIndex > commitIndex_) {
+        commitIndex_ = newCommitIndex;
+        applyLogs_.notify_one();
+    }
 
     if (params.entries.empty()) {
         LOG_EVERY_N(INFO, HEART_BEATS_LOG_COUNT)
@@ -308,8 +310,10 @@ void RaftHandler::handleAEResultFor(int peerIndex, const AppendEntriesParams& pa
         matchI.push_back(logs_.back().index);
         sort(matchI.begin(), matchI.end());
         LogId agreeIndex = matchI[matchI.size() / 2];
-        if (getLogByLogIndex(agreeIndex).term == currentTerm_)
+        if (getLogByLogIndex(agreeIndex).term == currentTerm_ && agreeIndex > commitIndex_) {
             commitIndex_ = agreeIndex;
+            applyLogs_.notify_one();
+        }
     } else {
         nextIndex_[i] = std::min(nextIndex_[i], params.prevLogIndex);
     }
@@ -511,7 +515,6 @@ void RaftHandler::async_sendLogEntries() noexcept
             std::unique_lock<std::mutex> logLock(raftLock_);
             sendEntries_.wait(logLock);
             peersForAE = peers_;
-            logLock.unlock();
         }
 
         LOG(INFO) << "async_sendLogEntries is notified";
@@ -582,7 +585,11 @@ void RaftHandler::async_applyMsg() noexcept
 {
     std::queue<LogEntry> logsForApply;
     while (true) {
-        std::this_thread::sleep_for(APPLY_MSG_INTERVAL);
+        {
+            std::unique_lock<std::mutex> lockLock(raftLock_);
+            applyLogs_.wait(lockLock);
+            LOG(INFO) << "async_applyMsg is notified";
+        }
 
         while (true) {
             {

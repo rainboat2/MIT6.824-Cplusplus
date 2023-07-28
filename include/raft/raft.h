@@ -21,6 +21,7 @@ constexpr auto HEART_BEATS_INTERVAL = std::chrono::milliseconds(50);
 constexpr auto APPLY_MSG_INTERVAL = std::chrono::milliseconds(10);
 constexpr auto RPC_TIMEOUT = std::chrono::milliseconds(250);
 constexpr int MAX_LOGS_PER_REQUEST = 20;
+constexpr int MAX_LOGS_BEFORE_SNAPSHOT = 100;
 constexpr int HEART_BEATS_LOG_COUNT = 1;
 const Host NULL_HOST;
 
@@ -91,6 +92,7 @@ private:
     Host me_;
     std::atomic<bool> inElection_;
     std::condition_variable sendEntries_;
+    std::condition_variable applyLogs_;
     Persister persister_;
 
     /*
