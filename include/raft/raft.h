@@ -24,6 +24,7 @@ constexpr int MAX_LOGS_PER_REQUEST = 20;
 constexpr int MAX_LOGS_BEFORE_SNAPSHOT = 100;
 constexpr int HEART_BEATS_LOG_COUNT = 1;
 const Host NULL_HOST;
+const RaftState INVALID_RAFTSTATE;
 
 class RaftHandler : virtual public RaftIf {
     friend class Persister;

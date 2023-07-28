@@ -64,7 +64,8 @@ void KVClerk::putAppendTo(int hostId, PutAppendReply& _return, const PutAppendPa
         client->putAppend(_return, params);
     } catch (apache::thrift::TException& tx) {
         clients_.setInvalid(hostId);
-        LOG(INFO) << "Send request to " << to_string(hosts_[hostId]) << "failed!: " << tx.what();
+        _return.status = KVStatus::ERR_WRONG_LEADER;
+        // LOG(INFO) << "Send request to " << to_string(hosts_[hostId]) << "failed!: " << tx.what();
     }
 }
 
@@ -75,6 +76,7 @@ void KVClerk::getTo(int hostId, GetReply& _return, const GetParams& params)
         client->get(_return, params);
     } catch (apache::thrift::TException& tx) {
         clients_.setInvalid(hostId);
-        LOG(INFO) << "Send request to " << to_string(hosts_[hostId]) << "failed!: " << tx.what();
+        _return.status = KVStatus::ERR_WRONG_LEADER;
+        // LOG(INFO) << "Send request to " << to_string(hosts_[hostId]) << "failed!: " << tx.what();
     }
 }

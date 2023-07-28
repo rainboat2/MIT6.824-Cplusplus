@@ -42,6 +42,7 @@ protected:
         logDir_ = fmt::format("../../logs/{}", testing::UnitTest::GetInstance()->current_test_info()->name());
         mkdir(logDir_.c_str(), S_IRWXU);
         ports_ = { 7001, 7002, 7003, 7004, 7005, 7006, 7007, 7008 };
+        cm_ = ClientManager<RaftClient>(ports_.size(), RPC_TIMEOUT);
         GlobalOutput.setOutputFunction(outputErrmsg);
     }
 
@@ -76,6 +77,38 @@ protected:
         std::this_thread::sleep_for(MAX_ELECTION_TIMEOUT);
     }
 
+    vector<int> findLeaders()
+    {
+        int retry = 2;
+        vector<int> leaders;
+        while (retry-- > 0) {
+            leaders.clear();
+            for (int i = 0; i < kvrafts_.size(); i++) {
+                auto st = getState(i);
+                if (st == INVALID_RAFTSTATE)
+                    continue;
+
+                if (st.state == ServerState::LEADER) {
+                    leaders.push_back(i);
+                }
+            }
+
+            if (leaders.size() != 1) {
+                std::this_thread::sleep_for(MAX_ELECTION_TIMEOUT);
+            } else {
+                return leaders;
+            }
+        }
+        return leaders;
+    }
+
+    int checkOneLeader()
+    {
+        auto leaders = findLeaders();
+        EXPECT_EQ(leaders.size(), 1);
+        return leaders.front();
+    }
+
     KVClerk buildKVClerk(int num)
     {
         EXPECT_LE(num, ports_.size());
@@ -85,11 +118,28 @@ protected:
         return KVClerk(hosts);
     }
 
+private:
+    RaftState getState(int i)
+    {
+        RaftState st;
+        try {
+            auto* client = cm_.getClient(i, hosts_[i]);
+            client->getState(st);
+        } catch (TException& tx) {
+            st = INVALID_RAFTSTATE;
+            auto err = fmt::format("Get State of {} failed! {};", to_string(hosts_[i]), tx.what());
+            outputErrmsg(err.c_str());
+            cm_.setInvalid(i);
+        }
+        return st;
+    }
+
 protected:
     std::vector<KVRaftProcess> kvrafts_;
     std::vector<int> ports_;
     std::vector<Host> hosts_;
     std::string logDir_;
+    ClientManager<RaftClient> cm_;
 };
 
 TEST_F(KVRaftTest, TestBasic3A)
@@ -158,7 +208,7 @@ TEST_F(KVRaftTest, TestConcurrent3A)
             auto& clerk = clerks[i];
             PutAppendParams put_p;
             PutAppendReply put_r;
-            string prefix = std::to_string((char)'a' + i);
+            string prefix = std::to_string(i) + "-";
             for (int j = 0; j < 100; j++) {
                 put_p.key = prefix + std::to_string(j);
                 put_p.value = prefix + std::to_string(j);
@@ -180,4 +230,44 @@ TEST_F(KVRaftTest, TestConcurrent3A)
     for (int i = 0; i < threads.size(); i++) {
         threads[i].join();
     }
+}
+
+TEST_F(KVRaftTest, TestUnreliable3A)
+{
+    const int KV_NUM = 3;
+    initKVRafts(KV_NUM);
+    auto clerk = buildKVClerk(KV_NUM);
+
+    PutAppendParams put_p;
+    PutAppendReply put_r;
+    string prefix = "kvraft";
+    for (int i = 0; i < 10; i++) {
+        put_p.key = prefix + std::to_string(i);
+        put_p.value = prefix + std::to_string(i);
+        clerk.putAppend(put_r, put_p);
+        EXPECT_EQ(put_r.status, KVStatus::OK);
+    }
+
+    int leader = checkOneLeader();
+    kvrafts_[leader].killRaft();
+
+    std::this_thread::sleep_for(MAX_ELECTION_TIMEOUT * 2);
+    EXPECT_EQ(findLeaders().size(), 1);
+
+    GetParams get_p;
+    GetReply get_r;
+    for (int i = 0; i < 10; i++) {
+        get_p.key = prefix + std::to_string(i);
+        clerk.get(get_r, get_p);
+        EXPECT_EQ(get_r.status, KVStatus::OK);
+        EXPECT_EQ(get_r.value, prefix + std::to_string(i));
+    }
+
+    leader = checkOneLeader();
+    kvrafts_[leader].killRaft();
+
+    put_p.key = prefix + "x";
+    put_p.value = prefix + "y";
+    clerk.putAppend(put_r, put_p);
+    EXPECT_EQ(put_r.status, KVStatus::ERR_WRONG_LEADER);
 }

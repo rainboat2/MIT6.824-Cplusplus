@@ -24,8 +24,6 @@ using namespace apache::thrift;
 using namespace apache::thrift::protocol;
 using namespace apache::thrift::transport;
 
-const RaftState INVALID_RAFTSTATE;
-
 using std::array;
 using std::string;
 using std::vector;
@@ -200,7 +198,7 @@ protected:
     {
     }
 
-protected:
+private:
     RaftState getState(int i)
     {
         RaftState st;
