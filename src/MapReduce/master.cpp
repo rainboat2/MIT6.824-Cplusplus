@@ -1,3 +1,4 @@
+#include <atomic>
 #include <chrono>
 #include <functional>
 #include <iostream>
@@ -11,12 +12,12 @@
 #include <rpc/mapreduce/Master.h>
 #include <tools/ToString.hpp>
 
+#include <fmt/core.h>
+#include <glog/logging.h>
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <thrift/server/TThreadedServer.h>
 #include <thrift/transport/TBufferTransports.h>
 #include <thrift/transport/TServerSocket.h>
-#include <fmt/core.h>
-#include <glog/logging.h>
 
 using namespace ::apache::thrift;
 using namespace ::apache::thrift::protocol;

@@ -21,7 +21,7 @@ public:
     {
     }
 
-    ClientType* getClient(int i, Host& addr)
+    ClientType* getClient(int i, const Host& addr)
     {
         using namespace ::apache::thrift;
         using namespace ::apache::thrift::protocol;

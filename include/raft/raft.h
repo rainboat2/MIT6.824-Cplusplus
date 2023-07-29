@@ -47,6 +47,8 @@ private:
 
     void switchToLeader();
 
+    void updateCommitIndex(LogId newIndex);
+
     LogEntry& getLogByLogIndex(LogId logIndex);
 
     AppendEntriesParams buildAppendEntriesParamsFor(int peerIndex);
@@ -66,6 +68,8 @@ private:
     void async_sendLogEntries() noexcept;
 
     void async_applyMsg() noexcept;
+
+    void async_applySnapShot() noexcept;
 
 private:
     // persisten state on all servers
@@ -92,8 +96,10 @@ private:
     std::vector<Host> peers_;
     Host me_;
     std::atomic<bool> inElection_;
+    std::atomic<bool> inSnapshot_;
     std::condition_variable sendEntries_;
     std::condition_variable applyLogs_;
+    std::condition_variable applySnapshot_;
     Persister persister_;
 
     /*
@@ -105,6 +111,9 @@ private:
     ClientManager<RaftClient> cmForAE_; //  client manager for  append entries
 
     StateMachineIf* stateMachine_;
+    std::string snapshotFile_;
+    LogId snapshotIndex_;
+    TermId snapshotTerm_;
 };
 
 #endif

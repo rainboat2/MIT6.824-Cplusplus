@@ -1,3 +1,4 @@
+#include <fstream>
 #include <sstream>
 
 #include <kvraft/KVServer.h>
@@ -106,13 +107,42 @@ void KVServer::apply(ApplyMsg msg)
         }
         LOG(INFO) << "Apply get command: " << msg.command;
     } else {
-        LOG(ERROR) << fmt::format("Invaid command: {}, commandIndex: {}", msg.command, msg.commandIndex);
+        LOG(ERROR) << fmt::format("Invaid command: {}, commandIndex: {}, commandterm: {}", msg.command, msg.commandIndex, msg.commandTerm);
     }
-    lastApply_ = msg.commandIndex;
+
+    {
+        std::lock_guard<std::mutex> guard(lock_);
+        lastApplyIndex_ = msg.commandIndex;
+        lastApplyTerm_ = msg.commandTerm;
+    }
 }
 
-void KVServer::startSnapShot(std::string fileName, std::function<void()> callback)
+void KVServer::startSnapShot(std::string fileName, std::function<void(LogId, TermId)> callback)
 {
+    pid_t pid;
+    LogId lastIndex;
+    TermId lastTerm;
+    {
+        // stop KV operations when fork
+        std::lock_guard<std::mutex> guard(lock_);
+        lastIndex = lastApplyIndex_;
+        lastTerm = lastApplyTerm_;
+        pid = fork();
+    }
+
+    if (pid == 0) {
+        stopListenPort_();
+        std::ofstream ofs(fileName);
+        ofs << lastApplyIndex_ << ' ' << lastApplyTerm_ << '\n';
+        for (auto it : um_) {
+            ofs << it.first << ' ' << it.second << '\n';
+        }
+        ofs.flush();
+        exit(0);
+    } else {
+        wait(&pid);
+        callback(lastIndex, lastTerm);
+    }
 }
 
 void KVServer::putAppend_internal(PutAppendReply& _return, const PutAppendParams& params)

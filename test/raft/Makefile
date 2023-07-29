@@ -3,15 +3,12 @@ ROOTDIR     = ../..
 
 LIBS := $(LIBS) -lgtest -lgtest_main -lraft -lkvraft-rpc
 
-RAFT_LIB = $(LIB_DIR)/libraft.a
+DEPENDENCIES = $(LIB_DIR)/libraft.a $(LIB_DIR)/libkvraft-rpc.a
 
-all: $(BIN)/test_raft
+all: make-raft $(BIN)/test_raft
 
-$(BIN)/%: %.cpp $(RAFT_LIB) RaftProcess.hpp
+$(BIN)/%: %.cpp $(DEPENDENCIES) RaftProcess.hpp
 	$(CC) $(CPPFLAGS) $(LIBS) $(LDFLAGS) $(INC) -o $@ $<
-
-$(RAFT_LIB):
-	make -C $(SRC_DIR)/raft
 
 .PHONY: clean run-test make-raft clean-log-port
 clean: clean-log-port
@@ -22,6 +19,7 @@ run-test: make-raft $(BIN)/test_raft
 	$(BIN)/test_raft $(cmd_args)
 
 make-raft:
+	make -C $(SRC_DIR)/rpc
 	make -C $(SRC_DIR)/raft
 
 clean-log-port:

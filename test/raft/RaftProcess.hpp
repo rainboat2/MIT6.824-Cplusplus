@@ -25,10 +25,10 @@ public:
         LOG(INFO) << "Mock apply msg: " << msg.command;
     }
 
-    void startSnapShot(std::string fileName, std::function<void()> callback)
+    void startSnapShot(std::string fileName, std::function<void(LogId, TermId)> callback)
     {
         LOG(INFO) << "Mock start snapshot: " << fileName;
-        callback();
+        callback(0, 0);
     }
 };
 

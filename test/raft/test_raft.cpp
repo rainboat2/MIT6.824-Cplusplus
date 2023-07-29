@@ -40,10 +40,11 @@ class RaftTest : public testing::Test {
 protected:
     void SetUp() override
     {
-        logDir_ = fmt::format("../../logs/{}", testing::UnitTest::GetInstance()->current_test_info()->name());
+        logDir_ = fmt::format("/Users/rain/vscodeProjects/MIT6.824/logs/{}", testing::UnitTest::GetInstance()->current_test_info()->name());
         mkdir(logDir_.c_str(), S_IRWXU);
         ports_ = { 7001, 7002, 7003, 7004, 7005, 7006, 7007, 7008 };
         cm_ = ClientManager<RaftClient>(ports_.size(), RPC_TIMEOUT);
+
         GlobalOutput.setOutputFunction(outputErrmsg);
     }
 
@@ -51,7 +52,7 @@ protected:
     {
         EXPECT_GE(ports_.size(), num);
         hosts_ = vector<Host>(num);
-        for (int i = 0; i < num; i++) {
+        for (int i = 0; i < hosts_.size(); i++) {
             hosts_[i].ip = "127.0.0.1";
             hosts_[i].port = ports_[i];
         }
@@ -194,11 +195,6 @@ protected:
         return -1;
     }
 
-    void TearDown() override
-    {
-    }
-
-private:
     RaftState getState(int i)
     {
         RaftState st;
@@ -212,6 +208,10 @@ private:
             cm_.setInvalid(i);
         }
         return st;
+    }
+
+    void TearDown() override
+    {
     }
 
 protected:
@@ -234,8 +234,7 @@ TEST_F(RaftTest, SignleTest)
 
     for (int i = 0; i < 10; i++) {
         auto start = NOW();
-        auto client = cm_.getClient(0, addr);
-        client->getState(st);
+        st = getState(0);
         int dur = std::chrono::duration_cast<std::chrono::milliseconds>(NOW() - start).count();
         EXPECT_LT(dur, 10);
     }
@@ -516,4 +515,20 @@ TEST_F(RaftTest, TestBackup2B)
 
     rafts_[(leader1 + 2) % RAFT_NUM].killRaft();
     rafts_[(leader1 + 3) % RAFT_NUM].killRaft();
+}
+
+TEST_F(RaftTest, TestPersist2C)
+{
+    const int RAFT_NUM = 3;
+    initRafts(RAFT_NUM);
+    string longPrefix;
+    for (int i = 0; i < 1024 * 128; i++) {
+        longPrefix += ('a' + (i - 'a') % 26);
+    }
+
+    for (int i = 0; i < 50; i++) {
+        std::string cmd = longPrefix + uniqueCmd();
+        int xindex = one(cmd, RAFT_NUM, false);
+        EXPECT_EQ(xindex, i + 1);
+    }
 }

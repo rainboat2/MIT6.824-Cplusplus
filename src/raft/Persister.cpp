@@ -1,8 +1,11 @@
 #include <cstdio>
 #include <deque>
+#include <dirent.h>
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <string.h>
+#include <sys/stat.h>
 
 #include <fmt/format.h>
 #include <glog/logging.h>
@@ -23,81 +26,158 @@ static std::ostream& operator<<(std::ostream& out, std::deque<LogEntry>& logs)
     return out;
 }
 
+std::ostream& operator<<(std::ostream& ost, const Metadata& md)
+{
+    ost << md.term << '\n';
+    if (md.voteFor == NULL_HOST) {
+        ost << "-1" << ' ' << 0 << '\n';
+    } else {
+        ost << md.voteFor.ip << ' ' << md.voteFor.port << '\n';
+    }
+    return ost;
+}
+
+std::istream& operator>>(std::istream& ist, Metadata& md)
+{
+    ist >> md.term
+        >> md.voteFor.ip >> md.voteFor.port;
+
+    if (md.voteFor.ip == "-1")
+        md.voteFor = NULL_HOST;
+    return ist;
+}
+
 Persister::Persister(std::string dirName_)
-    : stateFile_(dirName_ + "/state")
+    : metaFile_(std::fstream(dirName_ + "/meta.dat", std::ios::in | std::ios::out))
+    , md_({ 0, NULL_HOST })
+    , logChunkDir_(dirName_ + "/logChunks")
+    , lastInBufLogId_(0)
 {
+    std::string metaf = dirName_ + "/meta.dat";
+    if (access(metaf.c_str(), F_OK))
+        metaFile_ >> md_;
 }
 
-void Persister::saveRaftState(RaftHandler* rf)
-{
-    // std::lock_guard<std::mutex> guard(lock_);
-    // Timer t("Start saveRaftState!", "Finish saveRaftState!");
-    // std::ofstream ofs(stateFile_);
-    // checkState(rf);
-    // ofs << rf->currentTerm_ << '\n';
-
-    // if (rf->votedFor_ != NULL_HOST)
-    //     ofs << rf->votedFor_.ip << ' ' << rf->votedFor_.port << '\n';
-    // else
-    //     ofs << "-1.-1.-1.-1" << ' ' << -1 << '\n';
-    // ofs << rf->logs_.size() << '\n';
-
-    // for (auto log : rf->logs_) {
-    //     ofs << log.command << '\n'
-    //         << log.index << ' ' << log.term << '\n';
-    // }
-    // LOG(INFO) << fmt::format("Write {} logs to disk: ", rf->logs_.size()) << rf->logs_;
+Persister::~Persister() {
+    flushLogBuf();
 }
 
-void Persister::loadRaftState(RaftHandler* rf)
+void Persister::saveTermAndVote(TermId term, Host& voteFor)
 {
-    // std::lock_guard<std::mutex> guard(lock_);
-    // std::ifstream ifs(stateFile_);
-    // if (!ifs.good())
-    //     return;
-
-    // char newLine;
-    // ifs >> rf->currentTerm_;
-    // ifs >> rf->votedFor_.ip >> rf->votedFor_.port;
-    // if (rf->votedFor_.port < 0)
-    //     rf->votedFor_ = NULL_HOST;
-    // ifs.get(newLine);
-
-    // int logSize;
-    // ifs >> logSize;
-    // LOG(INFO) << fmt::format("Read {} logs from disk.", logSize);
-    // rf->logs_.clear();
-    // for (int i = 0; i < logSize; i++) {
-    //     LogEntry log;
-    //     std::getline(ifs, log.command);
-    //     ifs >> log.index >> log.term;
-    //     rf->logs_.push_back(std::move(log));
-    //     ifs.get(newLine);
-    // }
-
-    // /*
-    //  * if state_ file is invalid, remove it and reset the raft state
-    //  */
-    // if (!checkState(rf)) {
-    //     rf->currentTerm_ = 0;
-    //     rf->votedFor_ = NULL_HOST;
-    //     rf->logs_.clear();
-    //     rf->logs_.emplace_back();
-    //     ifs.close();
-    //     remove(stateFile_.c_str());
-    // }
+    md_.term = term;
+    md_.voteFor = voteFor;
+    metaFile_.seekg(0);
+    metaFile_ << md_;
+    metaFile_.flush();
 }
 
-bool Persister::checkState(RaftHandler* rf)
+void Persister::saveLogs(LogId commitIndex, std::deque<LogEntry>& logs)
 {
-    LOG_IF(ERROR, rf->currentTerm_ < 0) << "Invalid term: " << rf->currentTerm_;
-    for (int i = 1; i < rf->logs_.size(); i++) {
-        auto& prevLog = rf->logs_[i - 1];
-        auto& curLog = rf->logs_[i];
+    LOG(INFO) << fmt::format("Logs need to save: ({}, {}), total logs: ({}, {})",
+        lastInBufLogId_, commitIndex, logs.front().index, logs.back().index);
+    for (LogId i = lastInBufLogId_ + 1; i <= commitIndex; i++) {
+        int pos = i - logs.front().index;
+        LogEntry& log = logs[pos];
+        if (isLogBufFull(log)) {
+            flushLogBuf();
+        }
+        logBuf_ << log.term << ' ' << log.index << '\n'
+                << log.command << '\n';
+        lastInBufLogId_ = log.index;
+    }
+}
+
+void Persister::loadRaftState(TermId& term, Host& votedFor, std::deque<LogEntry>& logs)
+{
+    term = md_.term;
+    votedFor = md_.voteFor;
+    int chunksNum = logChunksNum();
+    for (int i = 0; i < chunksNum; i++) {
+        std::string name = fmt::format("{}/chunk{}.dat", logChunkDir_, chunksNum);
+        std::ifstream ifs(name);
+        char newLine;
+        LogEntry log;
+        ifs >> log.term >> log.index >> newLine;
+        std::getline(ifs, log.command);
+        logs.push_back(std::move(log));
+    }
+
+    /*
+     *  We avoid dealing with the "empty logs_" situation by adding an invalid log
+     *  in which the term and index are both 0.
+     */
+    if (chunksNum == 0)
+        logs.emplace_back();
+
+    if (!checkState(term, votedFor, logs)) {
+        term = 0;
+        votedFor = NULL_HOST;
+        logs.clear();
+        logs.emplace_back();
+    }
+}
+
+void Persister::flushLogBuf()
+{
+    int chunksNum = logChunksNum();
+    std::string name = fmt::format("{}/chunk{}.dat", logChunkDir_, chunksNum);
+    std::string tmpName = fmt::format("{}/tmp-chunk{}.dat", logChunkDir_, chunksNum);
+    {
+        std::ofstream ofs(tmpName, std::ios::out);
+        ofs << logBuf_.str();
+    }
+    rename(tmpName.c_str(), name.c_str());
+    LOG(INFO) << fmt::format("Log chunk {} have been written to: {}", chunksNum, name.c_str());
+
+    logBuf_.str(""); // clear buffer
+}
+
+bool Persister::checkState(TermId& term, Host& voteFor, std::deque<LogEntry>& logs)
+{
+    LOG_IF(FATAL, term < 0) << "Invalid term: " << term;
+    for (int i = 1; i < logs.size(); i++) {
+        auto& prevLog = logs[i - 1];
+        auto& curLog = logs[i];
         if (curLog.index != prevLog.index + 1) {
-            LOG(ERROR) << "Invalid log sequence: " << rf->logs_;
+            LOG(FATAL) << "Invalid log sequence: " << logs;
         }
     }
-    LOG_IF(ERROR, rf->logs_.empty()) << "Get emtpy logs from state file!" << std::endl;
     return true;
+}
+
+bool Persister::isLogBufFull(LogEntry& log)
+{
+    int size = sizeof(TermId) + sizeof(LogId);
+    size += 3; // 1 spaces and 2 newline
+    size += log.command.size();
+    return (size + logBuf_.tellp() >= LOG_CHUNK_BYTES);
+}
+
+int Persister::logChunksNum()
+{
+    DIR* dirp = opendir(logChunkDir_.c_str());
+    if (dirp == nullptr) {
+        if (errno == ENOENT) {
+            mkdir(logChunkDir_.c_str(), S_IRWXU);
+            LOG(INFO) << "Open log directory failed: " << strerror(errno) << ", create it!";
+        } else {
+            LOG(FATAL) << "Open log directory failed: " << strerror(errno);
+        }
+        return 0;
+    }
+
+    dirent* dp;
+    int cnt = 0;
+    while ((dp = readdir(dirp)) != nullptr) {
+        std::string name = dp->d_name;
+        if (name == "." || name == "..") {
+            continue;
+        } else if (name.rfind("tmp", 0) != 0) {
+            unlink(dp->d_name);
+            LOG(INFO) << "Delete useless file: " << name;
+        }
+        cnt++;
+    }
+    closedir(dirp);
+    return cnt;
 }

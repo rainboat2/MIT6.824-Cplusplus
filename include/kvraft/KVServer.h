@@ -36,7 +36,7 @@ public:
      * methods for state machine
      */
     void apply(ApplyMsg msg) override;
-    void startSnapShot(std::string fileName, std::function<void()> callback) override;
+    void startSnapShot(std::string fileName, std::function<void(LogId, TermId)> callback) override;
 
 private:
     void putAppend_internal(PutAppendReply& _return, const PutAppendParams& params);
@@ -49,7 +49,8 @@ private:
     std::unordered_map<LogId, std::promise<GetReply>> getWait_;
     std::mutex lock_;
     std::function<void()> stopListenPort_;
-    LogId lastApply_;
+    LogId lastApplyIndex_;
+    TermId lastApplyTerm_;
 };
 
 inline void KVServer::requestVote(RequestVoteResult& _return, const RequestVoteParams& params)
