@@ -15,6 +15,17 @@
 
 ## 项目依赖
 
+本项目所依赖的第三方库
+
+| 名称       | 说明                                | 版本 | 链接                                 |
+| ---------- | ----------------------------------- | ---- | ------------------------------------ |
+| thrift     | 一个轻量级，跨语言的RPC库           |      | https://github.com/apache/thrift     |
+| fmt        | 提供字符串格式化功能的库            |      | https://github.com/fmtlib/fmt        |
+| googletest | C++测试框架                         |      | https://github.com/google/googletest |
+| glog       | C++日志库，实现了应用级别的日志功能 |      | https://github.com/google/glog       |
+| gflags     | C++命令行参数解析工具               |      | https://github.com/gflags/gflags     |
+
+
 ### MacOS
 
 运行如下命令安装本项目所需依赖

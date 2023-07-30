@@ -26,7 +26,7 @@ static std::ostream& operator<<(std::ostream& out, std::deque<LogEntry>& logs)
     return out;
 }
 
-std::ostream& operator<<(std::ostream& ost, const Metadata& md)
+static std::ostream& operator<<(std::ostream& ost, const Metadata& md)
 {
     ost << md.term << '\n';
     if (md.voteFor == NULL_HOST) {
@@ -37,7 +37,7 @@ std::ostream& operator<<(std::ostream& ost, const Metadata& md)
     return ost;
 }
 
-std::istream& operator>>(std::istream& ist, Metadata& md)
+static std::istream& operator>>(std::istream& ist, Metadata& md)
 {
     ist >> md.term
         >> md.voteFor.ip >> md.voteFor.port;
@@ -56,14 +56,17 @@ Persister::Persister(std::string dirName_)
     std::string metaf = dirName_ + "/meta.dat";
     if (access(metaf.c_str(), F_OK))
         metaFile_ >> md_;
+    loadChunks();
 }
 
-Persister::~Persister() {
+Persister::~Persister()
+{
     flushLogBuf();
 }
 
 void Persister::saveTermAndVote(TermId term, Host& voteFor)
 {
+    Timer t("Start save meta data!", "Finish save meta data");
     md_.term = term;
     md_.voteFor = voteFor;
     metaFile_.seekg(0);
@@ -91,22 +94,22 @@ void Persister::loadRaftState(TermId& term, Host& votedFor, std::deque<LogEntry>
 {
     term = md_.term;
     votedFor = md_.voteFor;
-    int chunksNum = logChunksNum();
-    for (int i = 0; i < chunksNum; i++) {
-        std::string name = fmt::format("{}/chunk{}.dat", logChunkDir_, chunksNum);
-        std::ifstream ifs(name);
+    for (auto& chunk : chunkNames_) {
+        std::ifstream ifs(chunk);
+        LOG(INFO) << "Start read logs from chunk file: " << chunk;
         char newLine;
         LogEntry log;
-        ifs >> log.term >> log.index >> newLine;
-        std::getline(ifs, log.command);
-        logs.push_back(std::move(log));
+        while (ifs >> log.term >> log.index >> newLine) {
+            std::getline(ifs, log.command);
+            logs.push_back(std::move(log));
+        }
     }
 
     /*
      *  We avoid dealing with the "empty logs_" situation by adding an invalid log
      *  in which the term and index are both 0.
      */
-    if (chunksNum == 0)
+    if (logs.empty())
         logs.emplace_back();
 
     if (!checkState(term, votedFor, logs)) {
@@ -119,15 +122,19 @@ void Persister::loadRaftState(TermId& term, Host& votedFor, std::deque<LogEntry>
 
 void Persister::flushLogBuf()
 {
-    int chunksNum = logChunksNum();
-    std::string name = fmt::format("{}/chunk{}.dat", logChunkDir_, chunksNum);
-    std::string tmpName = fmt::format("{}/tmp-chunk{}.dat", logChunkDir_, chunksNum);
+    Timer t("Start flush log buffer!", "Finish flush log buffer!");
+    using namespace std::chrono;
+    auto now = duration_cast<milliseconds>(steady_clock::now().time_since_epoch());
+    std::string tmpName = fmt::format("{}/tmp-chunk.dat", logChunkDir_);
     {
-        std::ofstream ofs(tmpName, std::ios::out);
+        std::ofstream ofs(tmpName, std::ios::out | std::ios::trunc);
         ofs << logBuf_.str();
     }
+
+    std::string name = fmt::format("{}/{}.dat", logChunkDir_, now.count());
     rename(tmpName.c_str(), name.c_str());
-    LOG(INFO) << fmt::format("Log chunk {} have been written to: {}", chunksNum, name.c_str());
+    LOG(INFO) << fmt::format("Log chunk {} have been written to: {}", chunkNames_.size(), name.c_str());
+    chunkNames_.push_back(std::move(name));
 
     logBuf_.str(""); // clear buffer
 }
@@ -153,8 +160,9 @@ bool Persister::isLogBufFull(LogEntry& log)
     return (size + logBuf_.tellp() >= LOG_CHUNK_BYTES);
 }
 
-int Persister::logChunksNum()
+int Persister::loadChunks()
 {
+    chunkNames_.clear();
     DIR* dirp = opendir(logChunkDir_.c_str());
     if (dirp == nullptr) {
         if (errno == ENOENT) {
@@ -167,17 +175,17 @@ int Persister::logChunksNum()
     }
 
     dirent* dp;
-    int cnt = 0;
     while ((dp = readdir(dirp)) != nullptr) {
         std::string name = dp->d_name;
         if (name == "." || name == "..") {
             continue;
-        } else if (name.rfind("tmp", 0) != 0) {
+        } else if (name.rfind("tmp", 0) == 0) {
             unlink(dp->d_name);
             LOG(INFO) << "Delete useless file: " << name;
         }
-        cnt++;
+        chunkNames_.push_back(std::move(name));
     }
     closedir(dirp);
-    return cnt;
+    sort(chunkNames_.begin(), chunkNames_.end());
+    return chunkNames_.size();
 }

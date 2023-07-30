@@ -5,6 +5,8 @@
 #include <string>
 #include <vector>
 
+#include <rpc/kvraft/KVRaft_types.h>
+
 struct ApplyMsg {
     std::string command;
     int commandIndex;
@@ -13,7 +15,7 @@ struct ApplyMsg {
 
 class StateMachineIf {
 public:
-    virtual ~StateMachineIf() {}
+    virtual ~StateMachineIf() { }
 
     virtual void apply(ApplyMsg msg) = 0;
 

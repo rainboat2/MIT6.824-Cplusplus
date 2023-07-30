@@ -74,6 +74,8 @@ RaftHandler::RaftHandler(vector<Host>& peers, Host me, string persisterDir, Stat
     snapshot.detach();
 
     persister_.loadRaftState(currentTerm_, votedFor_, logs_);
+    LOG(INFO) << fmt::format("Load raft state: (term: {}, votedFor_: {}, logs: ({}, {})",
+        currentTerm_, to_string(votedFor_), logs_.front().index, logs_.back().index);
 }
 
 void RaftHandler::requestVote(RequestVoteResult& _return, const RequestVoteParams& params)
@@ -661,12 +663,13 @@ void RaftHandler::async_applySnapShot() noexcept
                 rename(tmpSnapshotFile.c_str(), snapshotFile_.c_str());
                 snapshotIndex_ = lastIncludeIndex;
                 snapshotTerm_ = lastIncludeTerm;
+                LOG(INFO) << "Generate snapshot successfully! File path: " << snapshotFile_;
 
                 int oldSize = logs_.size();
                 while (!logs_.empty() && logs_.front().index < lastIncludeIndex) {
                     logs_.pop_front();
                 }
-                LOG(INFO) << fmt::format("Remove {} logs, before: {}, now: {}", logs_.size() - oldSize, oldSize, logs_.size());
+                LOG(INFO) << fmt::format("Remove {} logs, before: {}, now: {}", oldSize - logs_.size(), oldSize, logs_.size());
             }
             inSnapshot_ = false;
         };

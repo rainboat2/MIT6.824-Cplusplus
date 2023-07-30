@@ -271,3 +271,25 @@ TEST_F(KVRaftTest, TestUnreliable3A)
     clerk.putAppend(put_r, put_p);
     EXPECT_EQ(put_r.status, KVStatus::ERR_WRONG_LEADER);
 }
+
+TEST_F(KVRaftTest, TestSnapshotBasic3B)
+{
+    const int KV_NUM = 3;
+    initKVRafts(KV_NUM);
+    auto clerk = buildKVClerk(KV_NUM);
+
+    PutAppendParams put_p;
+    PutAppendReply put_r;
+    string prefix = "kvraft";
+    for (int i = 0; i < MAX_LOGS_BEFORE_SNAPSHOT * 1.5; i++) {
+        put_p.key = prefix + std::to_string(i);
+        put_p.value = prefix + std::to_string(i);
+        clerk.putAppend(put_r, put_p);
+        EXPECT_EQ(put_r.status, KVStatus::OK);
+    }
+
+    for (int i = 0; i < KV_NUM; i++) {
+        string name = fmt::format("{}/kvraft{}", logDir_, i + 1);
+        access(name.c_str(), F_OK);
+    }
+}

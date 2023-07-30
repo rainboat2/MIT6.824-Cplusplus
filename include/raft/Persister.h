@@ -3,8 +3,8 @@
 
 #include <fstream>
 #include <iostream>
-#include <sstream>
 #include <mutex>
+#include <sstream>
 #include <string>
 
 #include <rpc/kvraft/KVRaft_types.h>
@@ -37,7 +37,7 @@ private:
 
     bool isLogBufFull(LogEntry& log);
 
-    int logChunksNum();
+    int loadChunks();
 
 private:
     std::fstream metaFile_;
@@ -45,10 +45,7 @@ private:
     std::string logChunkDir_;
     std::ostringstream logBuf_;
     LogId lastInBufLogId_;
+    std::vector<std::string> chunkNames_;
 };
-
-std::ostream& operator<<(std::ostream& ost, const Metadata& md);
-
-std::istream& operator>>(std::istream& ost, const Metadata& md);
 
 #endif

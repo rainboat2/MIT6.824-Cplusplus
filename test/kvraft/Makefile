@@ -11,7 +11,7 @@ $(BIN)/test_kvraft: test_kvraft.cpp $(DEPENDENCIES)
 	$(CC) $(CPPFLAGS) $(LIBS) $(LDFLAGS) $(INC) -o $@ $<
 
 .PHONY: clean clean-log-port make-kvraft run-test
-clean:
+clean: clean-log-port
 	rm -rf $(BIN)/test_kvraft $(LIB_DIR)/*raft*.a
 
 clean-log-port:
