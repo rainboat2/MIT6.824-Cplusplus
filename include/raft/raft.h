@@ -40,6 +40,8 @@ public:
 
     void start(StartResult& _return, const std::string& command) override;
 
+    TermId installSnapshot(const InstallSnapshotParams& params) override;
+
 private:
     void switchToFollow();
 
@@ -59,6 +61,8 @@ private:
 
     std::chrono::microseconds getElectionTimeout();
 
+    void async_sendLogsTo(int peerIndex, Host& host, AppendEntriesParams& params, ClientManager<RaftClient>& cm);
+
     void async_checkLeaderStatus() noexcept;
 
     void async_startElection() noexcept;
@@ -69,7 +73,7 @@ private:
 
     void async_applyMsg() noexcept;
 
-    void async_applySnapShot() noexcept;
+    void async_startSnapShot() noexcept;
 
 private:
     // persisten state on all servers
@@ -99,7 +103,7 @@ private:
     std::atomic<bool> inSnapshot_;
     std::condition_variable sendEntries_;
     std::condition_variable applyLogs_;
-    std::condition_variable applySnapshot_;
+    std::condition_variable startSnapshot_;
     Persister persister_;
 
     /*
@@ -111,7 +115,6 @@ private:
     ClientManager<RaftClient> cmForAE_; //  client manager for  append entries
 
     StateMachineIf* stateMachine_;
-    std::string snapshotFile_;
     LogId snapshotIndex_;
     TermId snapshotTerm_;
 };

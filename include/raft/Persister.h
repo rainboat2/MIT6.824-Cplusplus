@@ -30,22 +30,34 @@ public:
 
     void loadRaftState(TermId& term, Host& voteFor, std::deque<LogEntry>& logs);
 
+    void commitSnapshot(std::string tmpName, TermId lastIncTerm, LogId lastIncIndex);
+
 private:
     void flushLogBuf();
 
     bool checkState(TermId& term, Host& voteFor, std::deque<LogEntry>& logs);
 
-    bool isLogBufFull(LogEntry& log);
+    uint estmateSize(LogEntry& log);
 
     int loadChunks();
+
+    std::string loadLatestSnapshot();
+
+    void applySnapshot(std::string snapshot);
+
+    void compactLogs(LogId lastIncIndex);
+
+    std::vector<std::string> filesIn(std::string& dir);
 
 private:
     std::fstream metaFile_;
     Metadata md_;
     std::string logChunkDir_;
-    std::ostringstream logBuf_;
+    std::deque<LogEntry> logBuf_;
+    uint estimateLogBufSize_;
     LogId lastInBufLogId_;
-    std::vector<std::string> chunkNames_;
+    std::deque<std::string> chunkNames_;
+    std::string snapshotDir_;
 };
 
 #endif

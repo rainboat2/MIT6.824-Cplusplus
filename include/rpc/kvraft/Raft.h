@@ -26,6 +26,7 @@ class RaftIf {
   virtual void appendEntries(AppendEntriesResult& _return, const AppendEntriesParams& params) = 0;
   virtual void getState(RaftState& _return) = 0;
   virtual void start(StartResult& _return, const std::string& command) = 0;
+  virtual TermId installSnapshot(const InstallSnapshotParams& params) = 0;
 };
 
 class RaftIfFactory {
@@ -66,6 +67,10 @@ class RaftNull : virtual public RaftIf {
   }
   void start(StartResult& /* _return */, const std::string& /* command */) override {
     return;
+  }
+  TermId installSnapshot(const InstallSnapshotParams& /* params */) override {
+    TermId _return = 0;
+    return _return;
   }
 };
 
@@ -474,6 +479,111 @@ class Raft_start_presult {
 
 };
 
+typedef struct _Raft_installSnapshot_args__isset {
+  _Raft_installSnapshot_args__isset() : params(false) {}
+  bool params :1;
+} _Raft_installSnapshot_args__isset;
+
+class Raft_installSnapshot_args {
+ public:
+
+  Raft_installSnapshot_args(const Raft_installSnapshot_args&);
+  Raft_installSnapshot_args& operator=(const Raft_installSnapshot_args&);
+  Raft_installSnapshot_args() noexcept {
+  }
+
+  virtual ~Raft_installSnapshot_args() noexcept;
+  InstallSnapshotParams params;
+
+  _Raft_installSnapshot_args__isset __isset;
+
+  void __set_params(const InstallSnapshotParams& val);
+
+  bool operator == (const Raft_installSnapshot_args & rhs) const
+  {
+    if (!(params == rhs.params))
+      return false;
+    return true;
+  }
+  bool operator != (const Raft_installSnapshot_args &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const Raft_installSnapshot_args & ) const;
+
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot);
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const;
+
+};
+
+
+class Raft_installSnapshot_pargs {
+ public:
+
+
+  virtual ~Raft_installSnapshot_pargs() noexcept;
+  const InstallSnapshotParams* params;
+
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const;
+
+};
+
+typedef struct _Raft_installSnapshot_result__isset {
+  _Raft_installSnapshot_result__isset() : success(false) {}
+  bool success :1;
+} _Raft_installSnapshot_result__isset;
+
+class Raft_installSnapshot_result {
+ public:
+
+  Raft_installSnapshot_result(const Raft_installSnapshot_result&) noexcept;
+  Raft_installSnapshot_result& operator=(const Raft_installSnapshot_result&) noexcept;
+  Raft_installSnapshot_result() noexcept
+                              : success(0) {
+  }
+
+  virtual ~Raft_installSnapshot_result() noexcept;
+  TermId success;
+
+  _Raft_installSnapshot_result__isset __isset;
+
+  void __set_success(const TermId val);
+
+  bool operator == (const Raft_installSnapshot_result & rhs) const
+  {
+    if (!(success == rhs.success))
+      return false;
+    return true;
+  }
+  bool operator != (const Raft_installSnapshot_result &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const Raft_installSnapshot_result & ) const;
+
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot);
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const;
+
+};
+
+typedef struct _Raft_installSnapshot_presult__isset {
+  _Raft_installSnapshot_presult__isset() : success(false) {}
+  bool success :1;
+} _Raft_installSnapshot_presult__isset;
+
+class Raft_installSnapshot_presult {
+ public:
+
+
+  virtual ~Raft_installSnapshot_presult() noexcept;
+  TermId* success;
+
+  _Raft_installSnapshot_presult__isset __isset;
+
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot);
+
+};
+
 class RaftClient : virtual public RaftIf {
  public:
   RaftClient(std::shared_ptr< ::apache::thrift::protocol::TProtocol> prot) {
@@ -511,6 +621,9 @@ class RaftClient : virtual public RaftIf {
   void start(StartResult& _return, const std::string& command) override;
   void send_start(const std::string& command);
   void recv_start(StartResult& _return);
+  TermId installSnapshot(const InstallSnapshotParams& params) override;
+  void send_installSnapshot(const InstallSnapshotParams& params);
+  TermId recv_installSnapshot();
  protected:
   std::shared_ptr< ::apache::thrift::protocol::TProtocol> piprot_;
   std::shared_ptr< ::apache::thrift::protocol::TProtocol> poprot_;
@@ -530,6 +643,7 @@ class RaftProcessor : public ::apache::thrift::TDispatchProcessor {
   void process_appendEntries(int32_t seqid, ::apache::thrift::protocol::TProtocol* iprot, ::apache::thrift::protocol::TProtocol* oprot, void* callContext);
   void process_getState(int32_t seqid, ::apache::thrift::protocol::TProtocol* iprot, ::apache::thrift::protocol::TProtocol* oprot, void* callContext);
   void process_start(int32_t seqid, ::apache::thrift::protocol::TProtocol* iprot, ::apache::thrift::protocol::TProtocol* oprot, void* callContext);
+  void process_installSnapshot(int32_t seqid, ::apache::thrift::protocol::TProtocol* iprot, ::apache::thrift::protocol::TProtocol* oprot, void* callContext);
  public:
   RaftProcessor(::std::shared_ptr<RaftIf> iface) :
     iface_(iface) {
@@ -537,6 +651,7 @@ class RaftProcessor : public ::apache::thrift::TDispatchProcessor {
     processMap_["appendEntries"] = &RaftProcessor::process_appendEntries;
     processMap_["getState"] = &RaftProcessor::process_getState;
     processMap_["start"] = &RaftProcessor::process_start;
+    processMap_["installSnapshot"] = &RaftProcessor::process_installSnapshot;
   }
 
   virtual ~RaftProcessor() {}
@@ -605,6 +720,15 @@ class RaftMultiface : virtual public RaftIf {
     return;
   }
 
+  TermId installSnapshot(const InstallSnapshotParams& params) override {
+    size_t sz = ifaces_.size();
+    size_t i = 0;
+    for (; i < (sz - 1); ++i) {
+      ifaces_[i]->installSnapshot(params);
+    }
+    return ifaces_[i]->installSnapshot(params);
+  }
+
 };
 
 // The 'concurrent' client is a thread safe client that correctly handles
@@ -649,6 +773,9 @@ class RaftConcurrentClient : virtual public RaftIf {
   void start(StartResult& _return, const std::string& command) override;
   int32_t send_start(const std::string& command);
   void recv_start(StartResult& _return, const int32_t seqid);
+  TermId installSnapshot(const InstallSnapshotParams& params) override;
+  int32_t send_installSnapshot(const InstallSnapshotParams& params);
+  TermId recv_installSnapshot(const int32_t seqid);
  protected:
   std::shared_ptr< ::apache::thrift::protocol::TProtocol> piprot_;
   std::shared_ptr< ::apache::thrift::protocol::TProtocol> poprot_;

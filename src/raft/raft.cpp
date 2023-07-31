@@ -52,7 +52,6 @@ RaftHandler::RaftHandler(vector<Host>& peers, Host me, string persisterDir, Stat
     , cmForRV_(ClientManager<RaftClient>(peers.size(), RPC_TIMEOUT))
     , cmForAE_(ClientManager<RaftClient>(peers.size(), RPC_TIMEOUT))
     , stateMachine_(stateMachine)
-    , snapshotFile_(persisterDir + "/snapshot")
     , snapshotIndex_(0)
     , snapshotTerm_(0)
 {
@@ -69,12 +68,12 @@ RaftHandler::RaftHandler(vector<Host>& peers, Host me, string persisterDir, Stat
     applier.detach();
 
     std::thread snapshot([this]() {
-        this->async_applySnapShot();
+        this->async_startSnapShot();
     });
     snapshot.detach();
 
     persister_.loadRaftState(currentTerm_, votedFor_, logs_);
-    LOG(INFO) << fmt::format("Load raft state: (term: {}, votedFor_: {}, logs: ({}, {})",
+    LOG(INFO) << fmt::format("Load raft state: (term: {}, votedFor_: {}, logs: [{}, {}]",
         currentTerm_, to_string(votedFor_), logs_.front().index, logs_.back().index);
 }
 
@@ -243,6 +242,11 @@ void RaftHandler::start(StartResult& _return, const std::string& command)
     LOG(INFO) << "start to synchronization cmd: " << command;
 }
 
+TermId RaftHandler::installSnapshot(const InstallSnapshotParams& params)
+{
+    return 0;
+}
+
 void RaftHandler::switchToFollow()
 {
     state_ = ServerState::FOLLOWER;
@@ -281,7 +285,7 @@ void RaftHandler::updateCommitIndex(LogId newIndex)
         commitIndex_ = newIndex;
         applyLogs_.notify_one();
         if (commitIndex_ - logs_.front().index > MAX_LOGS_BEFORE_SNAPSHOT) {
-            applySnapshot_.notify_one();
+            startSnapshot_.notify_one();
         }
         persister_.saveLogs(commitIndex_, logs_);
     }
@@ -354,6 +358,27 @@ std::chrono::microseconds RaftHandler::getElectionTimeout()
         MAX_ELECTION_TIMEOUT.count());
     auto timeout = std::chrono::milliseconds(randomTime(rd));
     return timeout;
+}
+
+void RaftHandler::async_sendLogsTo(int peerIndex, Host& host, AppendEntriesParams& params, ClientManager<RaftClient>& cm)
+{
+    try {
+        AppendEntriesResult rs;
+        auto* client_ = cm.getClient(peerIndex, host);
+        client_->appendEntries(rs, params);
+
+        if (!params.entries.empty()) {
+            std::lock_guard<std::mutex> guard(raftLock_);
+            handleAEResultFor(peerIndex, params, rs);
+        }
+        LOG(INFO) << fmt::format("Send {} logs to {}", params.entries.size(), to_string(host))
+                  << fmt::format(", params: (prevLogIndex={}, prevLogTerm={}, commit={})",
+                         params.prevLogIndex, params.prevLogTerm, params.leaderCommit)
+                  << fmt::format(", the result: (success: {}, term: {})", rs.success, rs.term);
+    } catch (TException& tx) {
+        cm.setInvalid(peerIndex);
+        LOG(INFO) << fmt::format("Send logs to {} failed: {}", to_string(host), tx.what());
+    }
 }
 
 void RaftHandler::async_checkLeaderStatus() noexcept
@@ -488,24 +513,7 @@ void RaftHandler::async_sendHeartBeats() noexcept
         vector<std::thread> threads(peersForHB.size());
         for (int i = 0; i < peersForHB.size(); i++) {
             threads[i] = std::thread([i, &peersForHB, &paramsList, this]() {
-                Host addr;
-                try {
-                    RaftClient* client;
-                    addr = peersForHB[i];
-                    client = cmForHB_.getClient(i, addr);
-
-                    AppendEntriesResult rs;
-                    client->appendEntries(rs, paramsList[i]);
-
-                    {
-                        std::lock_guard<std::mutex> guard(raftLock_);
-                        handleAEResultFor(i, paramsList[i], rs);
-                    }
-                } catch (TException& tx) {
-                    LOG_EVERY_N(ERROR, HEART_BEATS_LOG_COUNT) << fmt::format("Send {} heart beats to {} failed: {}",
-                        HEART_BEATS_LOG_COUNT, to_string(addr), tx.what());
-                    cmForHB_.setInvalid(i);
-                }
+                async_sendLogsTo(i, peersForHB[i], paramsList[i], cmForHB_);
             });
         }
 
@@ -532,11 +540,12 @@ void RaftHandler::async_sendLogEntries() noexcept
         }
 
         LOG(INFO) << "async_sendLogEntries is notified";
+        vector<AppendEntriesParams> paramsList(peersForAE.size());
+        vector<LogId> locNextIndex(peersForAE.size());
+        LogId lastLogIndex;
         bool finish = false;
         while (!finish) {
-            vector<AppendEntriesParams> paramsList(peersForAE.size());
-            vector<AppendEntriesResult> resultList(peersForAE.size());
-            vector<int> sendSuccess(peersForAE.size(), true);
+            finish = true;
             {
                 std::lock_guard<std::mutex> guard(raftLock_);
                 if (state_ != ServerState::LEADER)
@@ -545,51 +554,29 @@ void RaftHandler::async_sendLogEntries() noexcept
                     paramsList[i] = buildAppendEntriesParamsFor(i);
                     gatherLogsFor(i, paramsList[i]);
                 }
+                std::copy(nextIndex_.begin(), nextIndex_.end(), locNextIndex.begin());
+                lastLogIndex = logs_.back().index;
             }
 
             LOG(INFO) << "Start to send logs to all peers. peers size: " << peersForAE.size();
             vector<std::thread> threads(peersForAE.size());
             for (int i = 0; i < peersForAE.size(); i++) {
-                threads[i] = std::thread([i, this, &peersForAE, &paramsList, &resultList, &sendSuccess]() {
-                    AppendEntriesParams& params = paramsList[i];
+                // if (locNextIndex[i] + MAX_LOGS_BEFORE_SNAPSHOT < commitIndex_) {
+                //     finish = false;
+                //     // send snapshot
 
-                    if (params.entries.empty()) {
-                        LOG(INFO) << "No logs need to send to: " << peersForAE[i];
-                        return;
-                    }
-
-                    AppendEntriesResult& rs = resultList[i];
-                    try {
-                        auto* client_ = cmForAE_.getClient(i, peersForAE[i]);
-                        client_->appendEntries(rs, params);
-                        LOG(INFO) << fmt::format("Send {} logs to {}", params.entries.size(), to_string(peersForAE[i]))
-                                  << fmt::format(", params: (prevLogIndex={}, prevLogTerm={}, commit={})",
-                                         params.prevLogIndex, params.prevLogTerm, params.leaderCommit)
-                                  << fmt::format(", the result: (success: {}, term: {})", rs.success, rs.term);
-                    } catch (TException& tx) {
-                        cmForAE_.setInvalid(i);
-                        sendSuccess[i] = false;
-                        LOG(INFO) << fmt::format("Send logs to {} failed: {}", to_string(peersForAE[i]), tx.what());
-                    }
-                });
+                // } else
+                if (locNextIndex[i] <= lastLogIndex) {
+                    finish = false;
+                    threads[i] = std::thread([i, this, &peersForAE, &paramsList]() {
+                        async_sendLogsTo(i, peersForAE[i], paramsList[i], cmForAE_);
+                    });
+                }
             }
 
             for (int i = 0; i < peersForAE.size(); i++) {
-                threads[i].join();
-            }
-
-            {
-                std::lock_guard<std::mutex> guard(raftLock_);
-                for (int i = 0; i < peersForAE.size(); i++) {
-                    if (sendSuccess[i])
-                        handleAEResultFor(i, paramsList[i], resultList[i]);
-                }
-                /*
-                 * Exit this loop if we send all logs successfully
-                 */
-                finish = std::all_of(matchIndex_.begin(), matchIndex_.end(), [this](int index) {
-                    return logs_.back().index == index;
-                });
+                if (threads[i].joinable())
+                    threads[i].join();
             }
         }
     }
@@ -638,12 +625,12 @@ void RaftHandler::async_applyMsg() noexcept
     }
 }
 
-void RaftHandler::async_applySnapShot() noexcept
+void RaftHandler::async_startSnapShot() noexcept
 {
     while (true) {
         {
             std::unique_lock<std::mutex> lock_(raftLock_);
-            applySnapshot_.wait(lock_);
+            startSnapshot_.wait(lock_);
         }
 
         bool expected = false;
@@ -652,7 +639,7 @@ void RaftHandler::async_applySnapShot() noexcept
 
         LOG(INFO) << fmt::format("Start snapshot, lastLogIndex: {}, logs size: {}", logs_.back().index, logs_.size());
 
-        string tmpSnapshotFile = snapshotFile_ + ".tmp";
+        string tmpSnapshotFile = "snapshot.tmp";
         if (access(tmpSnapshotFile.c_str(), F_OK)) {
             unlink(tmpSnapshotFile.c_str());
         }
@@ -660,10 +647,9 @@ void RaftHandler::async_applySnapShot() noexcept
         std::function<void(int, int)> callback = [tmpSnapshotFile, this](LogId lastIncludeIndex, TermId lastIncludeTerm) -> void {
             {
                 std::lock_guard<std::mutex> guard(raftLock_);
-                rename(tmpSnapshotFile.c_str(), snapshotFile_.c_str());
+                persister_.commitSnapshot(tmpSnapshotFile, lastIncludeTerm, lastIncludeIndex);
                 snapshotIndex_ = lastIncludeIndex;
                 snapshotTerm_ = lastIncludeTerm;
-                LOG(INFO) << "Generate snapshot successfully! File path: " << snapshotFile_;
 
                 int oldSize = logs_.size();
                 while (!logs_.empty() && logs_.front().index < lastIncludeIndex) {

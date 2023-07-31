@@ -91,6 +91,16 @@ struct GetReply {
     2: string value
 }
 
+struct InstallSnapshotParams {
+    1: TermId term,
+    2: Host leaderId,
+    3: LogId lastIncludedIndex,
+    4: TermId lastIncludedTerm,
+    5: i32 offset,
+    6: binary data,
+    7: bool done
+}
+
 service Raft {
     RequestVoteResult requestVote(1: RequestVoteParams params);
 
@@ -99,6 +109,8 @@ service Raft {
     RaftState getState();
 
     StartResult start(1: string command); 
+
+    TermId installSnapshot(1: InstallSnapshotParams params);
 }
 
 service KVRaft extends Raft{

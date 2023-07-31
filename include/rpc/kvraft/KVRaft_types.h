@@ -90,6 +90,8 @@ class GetParams;
 
 class GetReply;
 
+class InstallSnapshotParams;
+
 typedef struct _Host__isset {
   _Host__isset() : ip(false), port(false) {}
   bool ip :1;
@@ -783,6 +785,90 @@ class GetReply : public virtual ::apache::thrift::TBase {
 void swap(GetReply &a, GetReply &b);
 
 std::ostream& operator<<(std::ostream& out, const GetReply& obj);
+
+typedef struct _InstallSnapshotParams__isset {
+  _InstallSnapshotParams__isset() : term(false), leaderId(false), lastIncludedIndex(false), lastIncludedTerm(false), offset(false), data(false), done(false) {}
+  bool term :1;
+  bool leaderId :1;
+  bool lastIncludedIndex :1;
+  bool lastIncludedTerm :1;
+  bool offset :1;
+  bool data :1;
+  bool done :1;
+} _InstallSnapshotParams__isset;
+
+class InstallSnapshotParams : public virtual ::apache::thrift::TBase {
+ public:
+
+  InstallSnapshotParams(const InstallSnapshotParams&);
+  InstallSnapshotParams& operator=(const InstallSnapshotParams&);
+  InstallSnapshotParams() noexcept
+                        : term(0),
+                          lastIncludedIndex(0),
+                          lastIncludedTerm(0),
+                          offset(0),
+                          data(),
+                          done(0) {
+  }
+
+  virtual ~InstallSnapshotParams() noexcept;
+  TermId term;
+  Host leaderId;
+  LogId lastIncludedIndex;
+  TermId lastIncludedTerm;
+  int32_t offset;
+  std::string data;
+  bool done;
+
+  _InstallSnapshotParams__isset __isset;
+
+  void __set_term(const TermId val);
+
+  void __set_leaderId(const Host& val);
+
+  void __set_lastIncludedIndex(const LogId val);
+
+  void __set_lastIncludedTerm(const TermId val);
+
+  void __set_offset(const int32_t val);
+
+  void __set_data(const std::string& val);
+
+  void __set_done(const bool val);
+
+  bool operator == (const InstallSnapshotParams & rhs) const
+  {
+    if (!(term == rhs.term))
+      return false;
+    if (!(leaderId == rhs.leaderId))
+      return false;
+    if (!(lastIncludedIndex == rhs.lastIncludedIndex))
+      return false;
+    if (!(lastIncludedTerm == rhs.lastIncludedTerm))
+      return false;
+    if (!(offset == rhs.offset))
+      return false;
+    if (!(data == rhs.data))
+      return false;
+    if (!(done == rhs.done))
+      return false;
+    return true;
+  }
+  bool operator != (const InstallSnapshotParams &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const InstallSnapshotParams & ) const;
+
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(InstallSnapshotParams &a, InstallSnapshotParams &b);
+
+std::ostream& operator<<(std::ostream& out, const InstallSnapshotParams& obj);
 
 
 

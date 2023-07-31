@@ -1,12 +1,20 @@
 #ifndef TIMER_H
 #define TIMER_H
 
+#include <chrono>
 #include <string>
 #include <vector>
 
 #include <fmt/format.h>
 #include <gflags/gflags.h>
 #include <glog/logging.h>
+
+inline long long epochInMs()
+{
+    using namespace std::chrono;
+    auto now = duration_cast<milliseconds>(steady_clock::now().time_since_epoch());
+    return now.count();
+}
 
 class Timer {
 public:
