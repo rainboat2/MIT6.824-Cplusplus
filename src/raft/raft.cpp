@@ -1,4 +1,4 @@
-#include <algorithm>
+
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
@@ -421,6 +421,10 @@ void RaftHandler::async_startElection() noexcept
     RequestVoteParams params;
     {
         std::lock_guard<std::mutex> guard(raftLock_);
+        if (state_ != ServerState::CANDIDAE) {
+            LOG(INFO) << "Raft is not candidate now, exit the election";
+        }
+
         LOG(INFO) << fmt::format("Start a new election! currentTerm: {}, nextTerm: {}", currentTerm_, currentTerm_ + 1);
         currentTerm_++;
         votedFor_ = me_;
@@ -478,7 +482,7 @@ void RaftHandler::async_startElection() noexcept
         if (state_ == ServerState::CANDIDAE)
             switchToLeader();
         else
-            LOG(INFO) << fmt::format("Raft is not candidate now!");
+            LOG(ERROR) << fmt::format("Raft is not candidate now!");
     }
 
     for (int i = 0; i < threads.size(); i++)
