@@ -74,9 +74,9 @@ RaftHandler::RaftHandler(vector<Host>& peers, Host me, string persisterDir, Stat
     });
     snapshot.detach();
 
-    persister_.loadRaftState(currentTerm_, votedFor_, logs_);
-    LOG(INFO) << fmt::format("Load raft state: (term: {}, votedFor_: {}, logs: [{}, {}]",
-        currentTerm_, to_string(votedFor_), logs_.front().index, logs_.back().index);
+    persister_.loadRaftState(currentTerm_, votedFor_, logs_, snapshotIndex_, snapshotTerm_);
+    LOG(INFO) << fmt::format("Load raft state: (term: {}, votedFor_: {}, logs: {}",
+        currentTerm_, to_string(votedFor_), logsRange(logs_));
 }
 
 void RaftHandler::requestVote(RequestVoteResult& _return, const RequestVoteParams& params)
@@ -111,8 +111,7 @@ void RaftHandler::requestVote(RequestVoteResult& _return, const RequestVoteParam
      * If the logs have last entries with different terms, then the log with the later term is more up-to-date. If the logs
      * end with the same term, then whichever log is longer is more up-to-date.
      */
-    auto lastLog = logs_.back();
-    if (lastLog.term < params.LastLogTerm || (lastLog.term == params.LastLogTerm && lastLog.index < params.lastLogIndex)) {
+    if (lastLogTerm() < params.LastLogTerm || (lastLogTerm() == params.LastLogTerm && lastLogIndex() < params.lastLogIndex)) {
         LOG(INFO) << fmt::format("Receive a vote request from {} with outdate logs, reject it.", to_string(params.candidateId));
     }
 
@@ -155,17 +154,16 @@ void RaftHandler::appendEntries(AppendEntriesResult& _return, const AppendEntrie
     /*
      * find the latest log entry where the two logs agree
      */
-    if (params.prevLogIndex > logs_.back().index) {
+    if (params.prevLogIndex > lastLogIndex()) {
         LOG(INFO) << fmt::format("Expected older logs. prevLogIndex: {}, param.prevLogIndex: {}",
-            logs_.back().index, params.prevLogIndex);
+            lastLogIndex(), params.prevLogIndex);
         return;
     }
 
-    auto preLog = getLogByLogIndex(params.prevLogIndex);
-    if (params.prevLogTerm != preLog.term) {
+    if (params.prevLogTerm != lastLogTerm()) {
         LOG(INFO) << fmt::format("Expected log term {} at index {}, get {}, delete all logs after it!",
-            params.prevLogTerm, preLog.index, preLog.term);
-        while (logs_.back().index >= params.prevLogIndex)
+            params.prevLogTerm, lastLogIndex(), lastLogTerm());
+        while (!logs_.empty() && logs_.back().index >= params.prevLogIndex)
             logs_.pop_back();
     }
 
@@ -174,13 +172,13 @@ void RaftHandler::appendEntries(AppendEntriesResult& _return, const AppendEntrie
         int i;
         for (i = 0; i < params.entries.size(); i++) {
             auto& newEntry = params.entries[i];
-            if (newEntry.index > logs_.back().index)
+            if (newEntry.index > lastLogIndex())
                 break;
             auto& entry = getLogByLogIndex(newEntry.index);
             if (newEntry.term != entry.term) {
                 LOG(INFO) << fmt::format("Expected log term {} at index {}, get {}, delete all logs after it!",
                     newEntry.term, entry.index, entry.term);
-                while (logs_.back().index >= newEntry.index)
+                while (!logs_.empty() && logs_.back().index >= newEntry.index)
                     logs_.pop_back();
                 break;
             }
@@ -193,7 +191,7 @@ void RaftHandler::appendEntries(AppendEntriesResult& _return, const AppendEntrie
         }
     }
 
-    updateCommitIndex(std::min(params.leaderCommit, logs_.back().index));
+    updateCommitIndex(std::min(params.leaderCommit, lastLogIndex()));
 
     if (params.entries.empty()) {
         LOG_EVERY_N(INFO, HEART_BEATS_LOG_COUNT)
@@ -229,7 +227,7 @@ void RaftHandler::start(StartResult& _return, const std::string& command)
     }
 
     LogEntry log;
-    log.index = logs_.back().index + 1;
+    log.index = lastLogIndex() + 1;
     log.command = command;
     log.term = currentTerm_;
     logs_.push_back(std::move(log));
@@ -244,7 +242,54 @@ void RaftHandler::start(StartResult& _return, const std::string& command)
 
 TermId RaftHandler::installSnapshot(const InstallSnapshotParams& params)
 {
-    return 0;
+    std::lock_guard<std::mutex> guard(raftLock_);
+    static std::string tmpSnapshotPath;
+    static int offset = 0;
+
+    lastSeenLeader_ = NOW();
+
+    if (params.term < currentTerm_) {
+        LOG(INFO) << fmt::format("Out of fashion installsnapshot from {}, term: {}, currentTerm: {}",
+            to_string(params.leaderId), params.term, currentTerm_);
+        return currentTerm_;
+    }
+
+    if (params.term > currentTerm_) {
+        LOG(INFO) << fmt::format("Received snapshot from higher term leader {}, term: {}, currentTerm: {}",
+            to_string(params.leaderId), params.term, currentTerm_);
+        currentTerm_ = params.term;
+        if (state_ != ServerState::FOLLOWER) {
+            switchToFollow();
+        }
+    }
+
+    if (offset > params.offset || offset < params.offset) {
+        return currentTerm_;
+    }
+
+    if (offset == 0) {
+        if (access(tmpSnapshotPath.c_str(), F_OK) == 0) {
+            unlink(tmpSnapshotPath.c_str());
+            LOG(INFO) << "Remove old tmp file: " << tmpSnapshotPath;
+        }
+        tmpSnapshotPath = persister_.getTmpSnapshotPath();
+    }
+
+    std::ofstream ofs(tmpSnapshotPath, std::ios::app | std::ios::binary);
+    ofs.write(params.data.c_str(), params.data.size());
+    LOG(INFO) << fmt::format("Write {} bytes into {}", params.data.size(), tmpSnapshotPath);
+
+    if (params.done) {
+        persister_.commitSnapshot(tmpSnapshotPath, params.lastIncludedTerm, params.lastIncludedIndex);
+        auto ssPath = persister_.getLatestSnapshotPath();
+        std::thread applySs([this, ssPath]() {
+            stateMachine_->applySnapShot(ssPath);
+        });
+        applySs.detach();
+        offset = 0;
+    }
+
+    return currentTerm_;
 }
 
 void RaftHandler::switchToFollow()
@@ -275,7 +320,7 @@ void RaftHandler::switchToLeader()
         this->async_sendHeartBeats();
     });
     hb.detach();
-    std::fill(nextIndex_.begin(), nextIndex_.end(), logs_.back().index + 1);
+    std::fill(nextIndex_.begin(), nextIndex_.end(), lastLogIndex() + 1);
     std::fill(matchIndex_.begin(), matchIndex_.end(), 0);
 }
 
@@ -284,7 +329,7 @@ void RaftHandler::updateCommitIndex(LogId newIndex)
     if (newIndex > commitIndex_) {
         commitIndex_ = newIndex;
         applyLogs_.notify_one();
-        if (commitIndex_ - logs_.front().index > MAX_LOGS_BEFORE_SNAPSHOT) {
+        if (commitIndex_ - snapshotIndex_ > MAX_LOGS_BEFORE_SNAPSHOT) {
             startSnapshot_.notify_one();
         }
         persister_.saveLogs(commitIndex_, logs_);
@@ -293,8 +338,8 @@ void RaftHandler::updateCommitIndex(LogId newIndex)
 
 LogEntry& RaftHandler::getLogByLogIndex(LogId logIndex)
 {
-    int i = logIndex - logs_.front().index;
-    LOG_IF(FATAL, i < 0 || i > logs_.size()) << fmt::format("Unexpected log index {}, cur logs size is {}", logIndex, logs_.size());
+    int i = logIndex - (logs_.empty() ? snapshotIndex_ : logs_.front().index);
+    LOG_IF(FATAL, i < 0 || i > logs_.size()) << fmt::format("Unexpected log index {}, cur logs: {}", logIndex, logsRange(logs_));
     auto& entry = logs_[i];
     LOG_IF(FATAL, logIndex != entry.index) << "Unexpected log entry: " << entry << " in index: " << logIndex;
     return entry;
@@ -306,39 +351,45 @@ AppendEntriesParams RaftHandler::buildAppendEntriesParamsFor(int peerIndex)
     params.term = currentTerm_;
     params.leaderId = me_;
 
-    auto& prevLog = getLogByLogIndex(nextIndex_[peerIndex] - 1);
-    params.prevLogIndex = prevLog.index;
-    params.prevLogTerm = prevLog.term;
+    LogId prev = nextIndex_[peerIndex] - 1;
+    if (!logs_.empty() && prev >= logs_.front().index) {
+        auto& prevLog = getLogByLogIndex(prev);
+        params.prevLogIndex = prevLog.index;
+        params.prevLogTerm = prevLog.term;
+    } else {
+        params.prevLogIndex = snapshotIndex_;
+        params.prevLogTerm = snapshotTerm_;
+    }
 
     params.leaderCommit = commitIndex_;
     return params;
 }
 
-void RaftHandler::handleAEResultFor(int peerIndex, const AppendEntriesParams& params, const AppendEntriesResult& rs)
+void RaftHandler::handleReplicateResultFor(int peerIndex, LogId prevLogIndex, LogId matchedIndex, bool success)
 {
     int i = peerIndex;
-    if (rs.success) {
-        nextIndex_[i] += params.entries.size();
-        matchIndex_[i] = nextIndex_[i] - 1;
+    if (success) {
+        nextIndex_[i] = matchedIndex + 1;
+        matchIndex_[i] = matchedIndex;
         /*
          * Update commitIndex_. This is a typical top k problem, since the size of matchIndex_ is tiny,
          * to simplify the code, we handle this problem by sorting matchIndex_.
          */
         auto matchI = matchIndex_;
-        matchI.push_back(logs_.back().index);
+        matchI.push_back(lastLogIndex());
         sort(matchI.begin(), matchI.end());
         LogId agreeIndex = matchI[matchI.size() / 2];
-        if (getLogByLogIndex(agreeIndex).term == currentTerm_) {
+        if (agreeIndex != commitIndex_ && getLogByLogIndex(agreeIndex).term == currentTerm_) {
             updateCommitIndex(agreeIndex);
         }
     } else {
-        nextIndex_[i] = std::min(nextIndex_[i], params.prevLogIndex);
+        nextIndex_[i] = std::min(nextIndex_[i], prevLogIndex);
     }
 }
 
 int RaftHandler::gatherLogsFor(int peerIndex, AppendEntriesParams& params)
 {
-    int target = logs_.back().index;
+    int target = lastLogIndex();
     if (nextIndex_[peerIndex] > target)
         return 0;
 
@@ -360,6 +411,15 @@ std::chrono::microseconds RaftHandler::getElectionTimeout()
     return timeout;
 }
 
+void RaftHandler::compactLogs()
+{
+    int oldSize = logs_.size();
+    while (!logs_.empty() && logs_.front().index < snapshotIndex_) {
+        logs_.pop_front();
+    }
+    LOG(INFO) << fmt::format("Remove {} logs, before: {}, now: {}", oldSize - logs_.size(), oldSize, logs_.size());
+}
+
 bool RaftHandler::async_sendLogsTo(int peerIndex, Host host, AppendEntriesParams& params, ClientManager<RaftClient>& cm)
 {
     bool success = true;
@@ -370,7 +430,8 @@ bool RaftHandler::async_sendLogsTo(int peerIndex, Host host, AppendEntriesParams
 
         if (!params.entries.empty()) {
             std::lock_guard<std::mutex> guard(raftLock_);
-            handleAEResultFor(peerIndex, params, rs);
+            LogId matchId = params.prevLogIndex + params.entries.size();
+            handleReplicateResultFor(peerIndex, params.prevLogIndex, matchId, rs.success);
         }
         LOG(INFO) << fmt::format("Send {} logs to {}", params.entries.size(), to_string(host))
                   << fmt::format(", params: (prevLogIndex={}, prevLogTerm={}, commit={})",
@@ -386,6 +447,7 @@ bool RaftHandler::async_sendLogsTo(int peerIndex, Host host, AppendEntriesParams
 
 bool RaftHandler::async_sendSnapshotTo(int peerIndex, Host host)
 {
+    bool success = true;
     std::ifstream ifs;
     InstallSnapshotParams params;
     {
@@ -395,9 +457,12 @@ bool RaftHandler::async_sendSnapshotTo(int peerIndex, Host host)
         LOG_IF(FATAL, !ifs.good()) << "Invalid snaphot: " << ss;
 
         params.leaderId = me_;
+        params.term = currentTerm_;
         params.lastIncludedIndex = snapshotIndex_;
         params.lastIncludedTerm = snapshotTerm_;
     }
+
+    LOG(INFO) << fmt::format("Send snapshot to {}", to_string(host));
 
     constexpr int bufSize = 4096;
     char buf[bufSize];
@@ -405,6 +470,21 @@ bool RaftHandler::async_sendSnapshotTo(int peerIndex, Host host)
         ifs.read(buf, bufSize);
         params.data = std::string(buf);
         params.done = ifs.good();
+        try {
+            auto* client = cmForAE_.getClient(peerIndex, host);
+            client->installSnapshot(params);
+        } catch (TException& tx) {
+            success = false;
+            cmForAE_.setInvalid(peerIndex);
+            break;
+        }
+        params.offset += bufSize;
+    }
+
+    if (success) {
+        std::lock_guard<std::mutex> guard(raftLock_);
+        LogId matchId = params.lastIncludedIndex;
+        handleReplicateResultFor(peerIndex, matchIndex_[peerIndex], matchId, true);
     }
     return true;
 }
@@ -471,8 +551,8 @@ void RaftHandler::async_startElection() noexcept
 
         params.term = currentTerm_;
         params.candidateId = me_;
-        params.lastLogIndex = logs_.back().index;
-        params.LastLogTerm = logs_.back().term;
+        params.lastLogIndex = lastLogIndex();
+        params.LastLogTerm = lastLogTerm();
     }
 
     std::atomic<int> voteCnt(1);
@@ -572,27 +652,21 @@ void RaftHandler::async_replicateLogTo(int peerIndex, Host host) noexcept
         }
 
         LOG(INFO) << "async_replicateLogTo to " << to_string(host) << " is notified";
-        LogId lastLogIndex, nextIndex, snapshotIndex;
+        LogId lastLogId, nextIndex, snapshotIndex;
         while (true) {
             {
                 std::lock_guard<std::mutex> guard(raftLock_);
                 if (state_ != ServerState::LEADER)
                     break;
-                lastLogIndex = logs_.back().index;
+                lastLogId = lastLogIndex();
                 nextIndex = nextIndex_[peerIndex];
                 snapshotIndex = snapshotIndex_;
             }
 
             bool success = true;
             if (nextIndex + MAX_LOGS_BEFORE_SNAPSHOT < snapshotIndex) {
-                LOG(INFO) << fmt::format("Send snapshot to {}, nextIndex: {}, snapshotIndex: {}",
-                    to_string(host), nextIndex, snapshotIndex);
-
                 success = async_sendSnapshotTo(peerIndex, host);
-            } else if (nextIndex <= lastLogIndex) {
-                LOG(INFO) << fmt::format("Send log to {}, nextIndex: {}, lastLogIndex: {}",
-                    to_string(host), nextIndex, snapshotIndex);
-
+            } else if (nextIndex <= lastLogId) {
                 AppendEntriesParams params;
                 {
                     std::lock_guard<std::mutex> guard(raftLock_);
@@ -669,25 +743,16 @@ void RaftHandler::async_startSnapShot() noexcept
         if (!inSnapshot_.compare_exchange_strong(expected, true))
             continue;
 
-        LOG(INFO) << fmt::format("Start snapshot, lastLogIndex: {}, logs size: {}", logs_.back().index, logs_.size());
+        LOG(INFO) << fmt::format("Start snapshot, lastLogIndex: {}, logs: {}", lastLogIndex(), logsRange(logs_));
 
-        string tmpSnapshotFile = "snapshot.tmp";
-        if (access(tmpSnapshotFile.c_str(), F_OK)) {
-            unlink(tmpSnapshotFile.c_str());
-        }
-
+        string tmpSnapshotFile = persister_.getTmpSnapshotPath();
         std::function<void(int, int)> callback = [tmpSnapshotFile, this](LogId lastIncludeIndex, TermId lastIncludeTerm) -> void {
             {
                 std::lock_guard<std::mutex> guard(raftLock_);
                 persister_.commitSnapshot(tmpSnapshotFile, lastIncludeTerm, lastIncludeIndex);
                 snapshotIndex_ = lastIncludeIndex;
                 snapshotTerm_ = lastIncludeTerm;
-
-                int oldSize = logs_.size();
-                while (!logs_.empty() && logs_.front().index < lastIncludeIndex) {
-                    logs_.pop_front();
-                }
-                LOG(INFO) << fmt::format("Remove {} logs, before: {}, now: {}", oldSize - logs_.size(), oldSize, logs_.size());
+                compactLogs();
             }
             inSnapshot_ = false;
         };

@@ -138,7 +138,7 @@ protected:
         int nc = 0;
         for (int i = 0; i < rafts_.size(); i++) {
             auto st = getState(i);
-            if (st == INVALID_RAFTSTATE || index > st.logs.back().index)
+            if (st == INVALID_RAFTSTATE || st.logs.empty() || index > st.logs.back().index)
                 continue;
 
             auto ilog = getLog(st.logs, index);
@@ -520,23 +520,25 @@ TEST_F(RaftTest, TestBackup2B)
 TEST_F(RaftTest, TestPersistIndependently2C)
 {
     google::InitGoogleLogging("TestPersistIndependently2C");
+    FLAGS_log_dir = logDir_;
 
     string longPrefix;
     for (int i = 0; i < 1024 * 128; i++) {
         longPrefix += ('a' + (i - 'a') % 26);
     }
 
-    TermId term;
+    TermId term, lastIncTerm;
+    LogId lastIncIndex;
     Host votedFor;
     std::deque<LogEntry> logs;
     {
         Persister persister(logDir_);
-        persister.loadRaftState(term, votedFor, logs);
+        persister.loadRaftState(term, votedFor, logs, lastIncTerm, lastIncIndex);
 
-        for (int i = 1; i < 100; i++) {
+        for (int i = 1; i < 50; i++) {
             LogEntry log;
             log.command = longPrefix + uniqueCmd();
-            log.index = (logs.empty() ? 0 : logs.back().index + 1);
+            log.index = (logs.empty() ? 1 : logs.back().index + 1);
             log.term = 1;
             logs.push_back(std::move(log));
         }
@@ -546,7 +548,7 @@ TEST_F(RaftTest, TestPersistIndependently2C)
         votedFor.port = 1234;
 
         persister.saveTermAndVote(term, votedFor);
-        persister.saveLogs(logs.size() - 1, logs);
+        persister.saveLogs(logs.size(), logs);
     }
 
     {
@@ -554,7 +556,7 @@ TEST_F(RaftTest, TestPersistIndependently2C)
         Host pVoteFor;
         std::deque<LogEntry> plogs;
         Persister persister(logDir_);
-        persister.loadRaftState(pterm, pVoteFor, plogs);
+        persister.loadRaftState(pterm, pVoteFor, plogs, lastIncTerm, lastIncIndex);
 
         EXPECT_EQ(term, pterm);
         EXPECT_EQ(pVoteFor, votedFor);

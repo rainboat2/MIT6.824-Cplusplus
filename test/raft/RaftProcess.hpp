@@ -31,7 +31,7 @@ public:
         callback(0, 0);
     }
 
-    void installSnapShot(std::string filePath) override {
+    void applySnapShot(std::string filePath) override {
         LOG(INFO) << "Install snapshot: " << filePath;
     }
 };

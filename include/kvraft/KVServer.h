@@ -31,13 +31,14 @@ public:
     void appendEntries(AppendEntriesResult& _return, const AppendEntriesParams& params) override;
     void getState(RaftState& _return) override;
     void start(StartResult& _return, const std::string& command) override;
+    TermId installSnapshot(const InstallSnapshotParams& params) override;
 
     /*
      * methods for state machine
      */
     void apply(ApplyMsg msg) override;
     void startSnapShot(std::string filePath, std::function<void(LogId, TermId)> callback) override;
-    void installSnapShot(std::string filePath);
+    void applySnapShot(std::string filePath) override;
 
 private:
     void putAppend_internal(PutAppendReply& _return, const PutAppendParams& params);
@@ -70,5 +71,8 @@ inline void KVServer::start(StartResult& _return, const std::string& command)
 {
     raft_->start(_return, command);
 }
-
+inline TermId KVServer::installSnapshot(const InstallSnapshotParams& params)
+{
+    return raft_->installSnapshot(params);
+}
 #endif

@@ -1,6 +1,7 @@
 #ifndef TOSTRING_H
 #define TOSTRING_H
 
+#include <deque>
 #include <iostream>
 #include <string>
 
@@ -10,6 +11,14 @@
 inline std::string to_string(const Host& addr)
 {
     return '(' + addr.ip + ',' + std::to_string(addr.port) + ')';
+}
+
+inline std::string logsRange(const std::deque<LogEntry>& logs)
+{
+    if (!logs.empty())
+        return fmt::format("[{}, {}]", logs.front().index, logs.back().index);
+    else
+        return "[-1, -1]";
 }
 
 inline std::ostream& operator<<(std::ostream& out, const std::vector<std::string>& v)

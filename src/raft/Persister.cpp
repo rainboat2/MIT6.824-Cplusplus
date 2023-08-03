@@ -17,46 +17,19 @@
 #include <rpc/kvraft/Raft.h>
 #include <tools/Timer.hpp>
 
-static std::ostream& operator<<(std::ostream& out, std::deque<LogEntry>& logs)
-{
-    out << '[';
-    for (auto log : logs) {
-        const auto& cmd = log.command;
-        out << fmt::format("(term: {}, index: {}, cmd: {})", log.term, log.index, (cmd.size() > 10 ? cmd.substr(0, 10) : cmd));
-        out << ',';
-    }
-    out << ']';
-    return out;
-}
-
-static std::ostream& operator<<(std::ostream& ost, const Metadata& md)
-{
-    ost << md.term << '\n';
-    if (md.voteFor == NULL_HOST) {
-        ost << "-1" << ' ' << 0 << '\n';
-    } else {
-        ost << md.voteFor.ip << ' ' << md.voteFor.port << '\n';
-    }
-    return ost;
-}
-
-static std::istream& operator>>(std::istream& ist, Metadata& md)
-{
-    ist >> md.term
-        >> md.voteFor.ip >> md.voteFor.port;
-
-    if (md.voteFor.ip == "-1")
-        md.voteFor = NULL_HOST;
-    return ist;
-}
+static std::ostream& operator<<(std::ostream& out, std::deque<LogEntry>& logs);
+static std::ostream& operator<<(std::ostream& ost, const Metadata& md);
+static std::istream& operator>>(std::istream& ist, Metadata& md);
 
 Persister::Persister(std::string dirPath)
     : metaFilePath_(dirPath + "/meta.dat")
-    , md_({ 0, NULL_HOST })
     , logChunkDir_(dirPath + "/logChunks")
+    , snapshotDir_(dirPath + "/snapshots")
+    , md_({ 0, NULL_HOST })
+    , lastIncludeIndex_(0)
+    , lastIncludeTerm_(0)
     , estimateLogBufSize_(0)
     , lastInBufLogId_(-1)
-    , snapshotDir_(dirPath + "/snapshots")
 {
     if (access(metaFilePath_.c_str(), F_OK) == 0) {
         std::ifstream ifs(metaFilePath_);
@@ -87,8 +60,8 @@ void Persister::saveTermAndVote(TermId term, Host& voteFor)
 
 void Persister::saveLogs(LogId commitIndex, std::deque<LogEntry>& logs)
 {
-    LOG(INFO) << fmt::format("Logs need to save: ({}, {}), total logs: ({}, {})",
-        lastInBufLogId_ + 1, commitIndex, logs.front().index, logs.back().index);
+    LOG(INFO) << fmt::format("Logs need to save: ({}, {}), total logs: {}",
+        lastInBufLogId_ + 1, commitIndex, logsRange(logs));
     for (LogId i = lastInBufLogId_ + 1; i <= commitIndex; i++) {
         int pos = i - logs.front().index;
         LogEntry& log = logs[pos];
@@ -102,10 +75,11 @@ void Persister::saveLogs(LogId commitIndex, std::deque<LogEntry>& logs)
     }
 }
 
-void Persister::loadRaftState(TermId& term, Host& votedFor, std::deque<LogEntry>& logs)
+void Persister::loadRaftState(TermId& term, Host& votedFor, std::deque<LogEntry>& logs, TermId& lastIncTerm, LogId& lastIncIndex)
 {
     term = md_.term;
     votedFor = md_.voteFor;
+    logs.clear();
     for (auto& chunk : chunkNames_) {
         auto path = logChunkDir_ + "/" + chunk;
         std::ifstream ifs(path);
@@ -119,28 +93,22 @@ void Persister::loadRaftState(TermId& term, Host& votedFor, std::deque<LogEntry>
             std::getline(ifs, log.command);
             logs.push_back(std::move(log));
         }
-        LOG(INFO) << fmt::format("After read, logs [{}, {}] in the memory.", logs.front().index, logs.back().index);
+        LOG(INFO) << fmt::format("After read, logs {} in the memory.", logsRange(logs));
     }
 
     auto ss = getLatestSnapshotPath();
     if (ss != "") {
         applySnapshot(ss);
     }
+    lastIncTerm = lastIncludeTerm_;
+    lastIncIndex = lastIncludeIndex_;
 
-    lastInBufLogId_ = (logs.empty() ? -1 : logs.back().index);
-
-    /*
-     *  We avoid dealing with the "empty logs_" situation by adding an invalid log
-     *  in which the term and index are both 0.
-     */
-    if (logs.empty())
-        logs.emplace_back();
+    lastInBufLogId_ = (logs.empty() ? lastIncIndex : logs.back().index);
 
     if (!checkState(term, votedFor, logs)) {
         term = 0;
         votedFor = NULL_HOST;
         logs.clear();
-        logs.emplace_back();
     }
 }
 
@@ -221,10 +189,17 @@ std::string Persister::getLatestSnapshotPath()
     return lastestSnapshot;
 }
 
+std::string Persister::getTmpSnapshotPath()
+{
+    return fmt::format("{}/tmp_snapshot.{}", snapshotDir_, epochInMs());
+}
+
 void Persister::commitSnapshot(std::string tmpName, TermId lastIncTerm, LogId lastIncIndex)
 {
     auto snapshotName = fmt::format("{}/{}.dat", snapshotDir_, epochInMs());
     rename(tmpName.c_str(), snapshotName.c_str());
+    lastIncludeTerm_ = lastIncTerm;
+    lastIncludeIndex_ = lastIncTerm;
     compactLogs(lastIncIndex);
 }
 
@@ -237,9 +212,8 @@ void Persister::applySnapshot(std::string snapshotPath)
         return;
     }
 
-    LogId lastTerm, lastIndex;
-    ifs >> lastTerm >> lastIndex;
-    compactLogs(lastIndex);
+    ifs >> lastIncludeTerm_ >> lastIncludeIndex_;
+    compactLogs(lastIncludeIndex_);
 }
 
 void Persister::compactLogs(LogId lastIncIndex)
@@ -293,4 +267,37 @@ std::vector<std::string> Persister::filesIn(std::string& dir)
     }
     closedir(dirp);
     return files;
+}
+
+static std::ostream& operator<<(std::ostream& out, std::deque<LogEntry>& logs)
+{
+    out << '[';
+    for (auto log : logs) {
+        const auto& cmd = log.command;
+        out << fmt::format("(term: {}, index: {}, cmd: {})", log.term, log.index, (cmd.size() > 10 ? cmd.substr(0, 10) : cmd));
+        out << ',';
+    }
+    out << ']';
+    return out;
+}
+
+static std::ostream& operator<<(std::ostream& ost, const Metadata& md)
+{
+    ost << md.term << '\n';
+    if (md.voteFor == NULL_HOST) {
+        ost << "-1" << ' ' << 0 << '\n';
+    } else {
+        ost << md.voteFor.ip << ' ' << md.voteFor.port << '\n';
+    }
+    return ost;
+}
+
+static std::istream& operator>>(std::istream& ist, Metadata& md)
+{
+    ist >> md.term
+        >> md.voteFor.ip >> md.voteFor.port;
+
+    if (md.voteFor.ip == "-1")
+        md.voteFor = NULL_HOST;
+    return ist;
 }

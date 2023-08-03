@@ -145,7 +145,7 @@ void KVServer::startSnapShot(std::string filePath, std::function<void(LogId, Ter
     }
 }
 
-void KVServer::installSnapShot(std::string filePath)
+void KVServer::applySnapShot(std::string filePath)
 {
     std::lock_guard<std::mutex> guard(lock_);
     um_.clear();

@@ -28,11 +28,13 @@ public:
 
     void saveLogs(LogId commitIndex, std::deque<LogEntry>& logs);
 
-    void loadRaftState(TermId& term, Host& voteFor, std::deque<LogEntry>& logs);
+    void loadRaftState(TermId& term, Host& votedFor, std::deque<LogEntry>& logs, TermId& lastIncTerm, LogId& lastIncIndex);
 
     void commitSnapshot(std::string tmpName, TermId lastIncTerm, LogId lastIncIndex);
 
     std::string getLatestSnapshotPath();
+
+    std::string getTmpSnapshotPath();
 
 private:
     void flushLogBuf();
@@ -51,13 +53,17 @@ private:
 
 private:
     std::string metaFilePath_;
-    Metadata md_;
     std::string logChunkDir_;
+    std::string snapshotDir_;
+
+    Metadata md_;
+    std::deque<std::string> chunkNames_;
+    LogId lastIncludeIndex_;
+    TermId lastIncludeTerm_;
+
     std::deque<LogEntry> logBuf_;
     uint estimateLogBufSize_;
     LogId lastInBufLogId_;
-    std::deque<std::string> chunkNames_;
-    std::string snapshotDir_;
 };
 
 #endif

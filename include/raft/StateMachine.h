@@ -21,7 +21,7 @@ public:
 
     virtual void startSnapShot(std::string filePath, std::function<void(LogId, TermId)> callback) = 0;
 
-    virtual void installSnapShot(std::string filePath) = 0;
+    virtual void applySnapShot(std::string filePath) = 0;
 };
 
 #endif

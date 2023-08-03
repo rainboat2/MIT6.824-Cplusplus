@@ -55,11 +55,17 @@ private:
 
     AppendEntriesParams buildAppendEntriesParamsFor(int peerIndex);
 
-    void handleAEResultFor(int peerIndex, const AppendEntriesParams& params, const AppendEntriesResult& rs);
+    void handleReplicateResultFor(int peerIndex, LogId prevLogIndex, LogId matchedIndex, bool success);
 
     int gatherLogsFor(int peerIndex, AppendEntriesParams& params);
 
     std::chrono::microseconds getElectionTimeout();
+
+    LogId lastLogIndex() { return (logs_.empty() ? snapshotIndex_ : logs_.back().index); };
+
+    TermId lastLogTerm() { return (logs_.empty() ? snapshotTerm_ : logs_.back().term); };
+
+    void compactLogs();
 
     void async_checkLeaderStatus() noexcept;
 
