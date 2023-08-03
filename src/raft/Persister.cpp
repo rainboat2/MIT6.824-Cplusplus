@@ -218,7 +218,7 @@ void Persister::applySnapshot(std::string snapshotPath)
 
 void Persister::compactLogs(LogId lastIncIndex)
 {
-    while (chunkNames_.empty()) {
+    while (!chunkNames_.empty()) {
         LogId chunkStart, chunkEnd;
         std::string chunk = chunkNames_.front();
         std::ifstream ifs(chunk);

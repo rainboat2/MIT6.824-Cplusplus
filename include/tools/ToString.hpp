@@ -8,6 +8,8 @@
 #include <rpc/kvraft/KVRaft_types.h>
 #include <rpc/mapreduce/MapReduce_types.h>
 
+#include <fmt/format.h>
+
 inline std::string to_string(const Host& addr)
 {
     return '(' + addr.ip + ',' + std::to_string(addr.port) + ')';
