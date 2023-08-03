@@ -517,6 +517,54 @@ TEST_F(RaftTest, TestBackup2B)
     rafts_[(leader1 + 3) % RAFT_NUM].killRaft();
 }
 
+TEST_F(RaftTest, TestPersistIndependently2C)
+{
+    google::InitGoogleLogging("TestPersistIndependently2C");
+
+    string longPrefix;
+    for (int i = 0; i < 1024 * 128; i++) {
+        longPrefix += ('a' + (i - 'a') % 26);
+    }
+
+    TermId term;
+    Host votedFor;
+    std::deque<LogEntry> logs;
+    {
+        Persister persister(logDir_);
+        persister.loadRaftState(term, votedFor, logs);
+
+        for (int i = 1; i < 100; i++) {
+            LogEntry log;
+            log.command = longPrefix + uniqueCmd();
+            log.index = (logs.empty() ? 0 : logs.back().index + 1);
+            log.term = 1;
+            logs.push_back(std::move(log));
+        }
+
+        term = 1;
+        votedFor.ip = "127.0.0.1";
+        votedFor.port = 1234;
+
+        persister.saveTermAndVote(term, votedFor);
+        persister.saveLogs(logs.size() - 1, logs);
+    }
+
+    {
+        TermId pterm;
+        Host pVoteFor;
+        std::deque<LogEntry> plogs;
+        Persister persister(logDir_);
+        persister.loadRaftState(pterm, pVoteFor, plogs);
+
+        EXPECT_EQ(term, pterm);
+        EXPECT_EQ(pVoteFor, votedFor);
+        EXPECT_EQ(plogs.size(), logs.size());
+        // for (size_t i = 0; i < plogs.size(); i++) {
+        //     EXPECT_EQ(plogs[i], logs[i]);
+        // }
+    }
+}
+
 TEST_F(RaftTest, TestPersist2C)
 {
     const int RAFT_NUM = 3;

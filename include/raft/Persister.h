@@ -50,7 +50,7 @@ private:
     std::vector<std::string> filesIn(std::string& dir);
 
 private:
-    std::fstream metaFile_;
+    std::string metaFile_;
     Metadata md_;
     std::string logChunkDir_;
     std::deque<LogEntry> logBuf_;

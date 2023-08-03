@@ -423,6 +423,8 @@ void RaftHandler::async_startElection() noexcept
         std::lock_guard<std::mutex> guard(raftLock_);
         if (state_ != ServerState::CANDIDAE) {
             LOG(INFO) << "Raft is not candidate now, exit the election";
+            inElection_ = false;
+            return;
         }
 
         LOG(INFO) << fmt::format("Start a new election! currentTerm: {}, nextTerm: {}", currentTerm_, currentTerm_ + 1);

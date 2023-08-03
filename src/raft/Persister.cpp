@@ -8,6 +8,7 @@
 #include <sys/stat.h>
 
 #include <fmt/format.h>
+#include <fmt/ranges.h>
 #include <glog/logging.h>
 
 #include <raft/Persister.h>
@@ -19,8 +20,10 @@
 static std::ostream& operator<<(std::ostream& out, std::deque<LogEntry>& logs)
 {
     out << '[';
-    for (auto& l : logs) {
-        out << l << ',';
+    for (auto log : logs) {
+        const auto& cmd = log.command;
+        out << fmt::format("(term: {}, index: {}, cmd: {})", log.term, log.index, (cmd.size() > 10 ? cmd.substr(0, 10) : cmd));
+        out << ',';
     }
     out << ']';
     return out;
@@ -48,16 +51,20 @@ static std::istream& operator>>(std::istream& ist, Metadata& md)
 }
 
 Persister::Persister(std::string dirName_)
-    : metaFile_(std::fstream(dirName_ + "/meta.dat", std::ios::in | std::ios::out))
+    : metaFile_(dirName_ + "/meta.dat")
     , md_({ 0, NULL_HOST })
     , logChunkDir_(dirName_ + "/logChunks")
     , estimateLogBufSize_(0)
-    , lastInBufLogId_(0)
+    , lastInBufLogId_(-1)
     , snapshotDir_(dirName_ + "/snapshots")
 {
-    std::string metaf = dirName_ + "/meta.dat";
-    if (access(metaf.c_str(), F_OK))
-        metaFile_ >> md_;
+    if (access(metaFile_.c_str(), F_OK) == 0) {
+        std::ifstream ifs(metaFile_);
+        if (!ifs.good())
+            LOG(WARNING) << "Meta file is not good: " << metaFile_;
+        ifs >> md_;
+    }
+
     loadChunks();
 }
 
@@ -71,15 +78,17 @@ void Persister::saveTermAndVote(TermId term, Host& voteFor)
     Timer t("Start save meta data!", "Finish save meta data");
     md_.term = term;
     md_.voteFor = voteFor;
-    metaFile_.seekg(0);
-    metaFile_ << md_;
-    metaFile_.flush();
+
+    std::string tmp = metaFile_ + ".tmp";
+    std::ofstream ofs(tmp, std::ios::trunc);
+    ofs << md_;
+    rename(tmp.c_str(), metaFile_.c_str());
 }
 
 void Persister::saveLogs(LogId commitIndex, std::deque<LogEntry>& logs)
 {
     LOG(INFO) << fmt::format("Logs need to save: ({}, {}), total logs: ({}, {})",
-        lastInBufLogId_, commitIndex, logs.front().index, logs.back().index);
+        lastInBufLogId_ + 1, commitIndex, logs.front().index, logs.back().index);
     for (LogId i = lastInBufLogId_ + 1; i <= commitIndex; i++) {
         int pos = i - logs.front().index;
         LogEntry& log = logs[pos];
@@ -95,8 +104,19 @@ void Persister::saveLogs(LogId commitIndex, std::deque<LogEntry>& logs)
 
 void Persister::loadRaftState(TermId& term, Host& votedFor, std::deque<LogEntry>& logs)
 {
-    term = md_.term;
-    votedFor = md_.voteFor;
+    if (access(metaFile_.c_str(), F_OK) == 0) {
+        std::ifstream ifs(metaFile_);
+        if (!ifs.good())
+            LOG(WARNING) << "Meta file is not good: " << metaFile_;
+        ifs >> md_;
+        term = md_.term;
+        votedFor = md_.voteFor;
+    } else {
+        term = 1;
+        votedFor = NULL_HOST;
+    }
+
+    loadChunks();
     for (auto& chunk : chunkNames_) {
         auto path = logChunkDir_ + "/" + chunk;
         std::ifstream ifs(path);
@@ -105,16 +125,20 @@ void Persister::loadRaftState(TermId& term, Host& votedFor, std::deque<LogEntry>
         LOG(INFO) << fmt::format("Start read logs [{}, {}] from chunk file {}", chunkStart, chunkEnd, path);
         char newLine;
         LogEntry log;
-        while (ifs >> log.term >> log.index >> newLine) {
+        while (ifs >> log.term >> log.index) {
+            ifs.get(newLine);
             std::getline(ifs, log.command);
             logs.push_back(std::move(log));
         }
+        LOG(INFO) << fmt::format("After read, logs [{}, {}] in the memory.", logs.front().index, logs.back().index);
     }
 
     auto ss = loadLatestSnapshot();
     if (ss != "") {
         applySnapshot(snapshotDir_);
     }
+
+    lastInBufLogId_ = (logs.empty()? -1 : logs.back().index);
 
     /*
      *  We avoid dealing with the "empty logs_" situation by adding an invalid log
@@ -136,8 +160,10 @@ void Persister::flushLogBuf()
     Timer t("Start flush log buffer!", "Finish flush log buffer!");
     std::string tmpName = fmt::format("{}/tmp-chunk.dat", logChunkDir_);
     {
+        if (logBuf_.empty())
+            return;
         std::ofstream ofs(tmpName, std::ios::out | std::ios::trunc);
-        ofs << logBuf_.front().index << ' ' << logBuf_.back().index;
+        ofs << logBuf_.front().index << ' ' << logBuf_.back().index << '\n';
         for (auto& log : logBuf_) {
             ofs << log.term << ' ' << log.index << '\n';
             ofs << log.command << '\n';
@@ -160,7 +186,7 @@ bool Persister::checkState(TermId& term, Host& voteFor, std::deque<LogEntry>& lo
         auto& prevLog = logs[i - 1];
         auto& curLog = logs[i];
         if (curLog.index != prevLog.index + 1) {
-            LOG(FATAL) << "Invalid log sequence: " << logs;
+            LOG(FATAL) << "Invalid log sequence: {}" << logs;
         }
     }
     return true;
@@ -177,6 +203,7 @@ uint Persister::estmateSize(LogEntry& log)
 int Persister::loadChunks()
 {
     auto files = filesIn(logChunkDir_);
+    chunkNames_.clear();
     for (auto file : files) {
         if (file.rfind("tmp", 0) == 0) {
             auto chunkPath = logChunkDir_ + "/" + file;
@@ -186,6 +213,7 @@ int Persister::loadChunks()
         }
     }
     sort(chunkNames_.begin(), chunkNames_.end());
+    LOG(INFO) << "Load chunks: " << std::vector<std::string>(chunkNames_.begin(), chunkNames_.end());
     return chunkNames_.size();
 }
 
@@ -270,7 +298,7 @@ std::vector<std::string> Persister::filesIn(std::string& dir)
     dirent* dp;
     while ((dp = readdir(dirp)) != nullptr) {
         std::string name = dp->d_name;
-        if (name == "." || name == ".." || dp->d_type == DT_REG) {
+        if (name == "." || name == ".." || dp->d_type != DT_REG) {
             continue;
         }
         files.push_back(std::move(name));
