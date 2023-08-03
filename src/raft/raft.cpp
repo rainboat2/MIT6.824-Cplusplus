@@ -57,10 +57,12 @@ RaftHandler::RaftHandler(vector<Host>& peers, Host me, string persisterDir, Stat
 {
     switchToFollow();
 
-    std::thread ae([this]() {
-        this->async_sendLogEntries();
-    });
-    ae.detach();
+    for (int i = 0; i < peers_.size(); i++) {
+        std::thread ae([this, i]() {
+            this->async_replicateLogTo(i, peers_[i]);
+        });
+        ae.detach();
+    }
 
     std::thread applier([this]() {
         this->async_applyMsg();
@@ -212,9 +214,7 @@ void RaftHandler::getState(RaftState& _return)
     _return.lastApplied = lastApplied_;
     _return.state = state_;
     _return.peers = peers_;
-    for (auto& log : logs_) {
-        _return.logs.push_back(log);
-    }
+    _return.logs = std::vector<LogEntry>(logs_.begin(), logs_.end());
     LOG(INFO) << fmt::format("Get raft state: term = {}, votedFor = {}, commitIndex = {}, lastApplied = {}, state={}, logs size={}",
         currentTerm_, to_string(votedFor_), commitIndex_, lastApplied_, to_string(state_), _return.logs.size());
 }
@@ -238,7 +238,7 @@ void RaftHandler::start(StartResult& _return, const std::string& command)
     _return.term = currentTerm_;
     _return.isLeader = true;
 
-    sendEntries_.notify_one();
+    sendEntries_.notify_all();
     LOG(INFO) << "start to synchronization cmd: " << command;
 }
 
@@ -360,8 +360,9 @@ std::chrono::microseconds RaftHandler::getElectionTimeout()
     return timeout;
 }
 
-void RaftHandler::async_sendLogsTo(int peerIndex, Host& host, AppendEntriesParams& params, ClientManager<RaftClient>& cm)
+bool RaftHandler::async_sendLogsTo(int peerIndex, Host host, AppendEntriesParams& params, ClientManager<RaftClient>& cm)
 {
+    bool success = true;
     try {
         AppendEntriesResult rs;
         auto* client_ = cm.getClient(peerIndex, host);
@@ -378,7 +379,34 @@ void RaftHandler::async_sendLogsTo(int peerIndex, Host& host, AppendEntriesParam
     } catch (TException& tx) {
         cm.setInvalid(peerIndex);
         LOG(INFO) << fmt::format("Send logs to {} failed: {}", to_string(host), tx.what());
+        success = false;
     }
+    return success;
+}
+
+bool RaftHandler::async_sendSnapshotTo(int peerIndex, Host host)
+{
+    std::ifstream ifs;
+    InstallSnapshotParams params;
+    {
+        std::lock_guard<std::mutex> guard(raftLock_);
+        auto ss = persister_.getLatestSnapshotPath();
+        ifs = std::ifstream(ss, std::ios::binary);
+        LOG_IF(FATAL, !ifs.good()) << "Invalid snaphot: " << ss;
+
+        params.leaderId = me_;
+        params.lastIncludedIndex = snapshotIndex_;
+        params.lastIncludedTerm = snapshotTerm_;
+    }
+
+    constexpr int bufSize = 4096;
+    char buf[bufSize];
+    while (ifs.good()) {
+        ifs.read(buf, bufSize);
+        params.data = std::string(buf);
+        params.done = ifs.good();
+    }
+    return true;
 }
 
 void RaftHandler::async_checkLeaderStatus() noexcept
@@ -532,57 +560,55 @@ void RaftHandler::async_sendHeartBeats() noexcept
     }
 }
 
-void RaftHandler::async_sendLogEntries() noexcept
+void RaftHandler::async_replicateLogTo(int peerIndex, Host host) noexcept
 {
     while (true) {
-        vector<Host> peersForAE;
         {
             /*
              * wait for RaftHandler::start function to notify
              */
             std::unique_lock<std::mutex> logLock(raftLock_);
             sendEntries_.wait(logLock);
-            peersForAE = peers_;
         }
 
-        LOG(INFO) << "async_sendLogEntries is notified";
-        vector<AppendEntriesParams> paramsList(peersForAE.size());
-        vector<LogId> locNextIndex(peersForAE.size());
-        LogId lastLogIndex;
-        bool finish = false;
-        while (!finish) {
-            finish = true;
+        LOG(INFO) << "async_replicateLogTo to " << to_string(host) << " is notified";
+        LogId lastLogIndex, nextIndex, snapshotIndex;
+        while (true) {
             {
                 std::lock_guard<std::mutex> guard(raftLock_);
                 if (state_ != ServerState::LEADER)
                     break;
-                for (int i = 0; i < peersForAE.size(); i++) {
-                    paramsList[i] = buildAppendEntriesParamsFor(i);
-                    gatherLogsFor(i, paramsList[i]);
-                }
-                std::copy(nextIndex_.begin(), nextIndex_.end(), locNextIndex.begin());
                 lastLogIndex = logs_.back().index;
+                nextIndex = nextIndex_[peerIndex];
+                snapshotIndex = snapshotIndex_;
             }
 
-            LOG(INFO) << "Start to send logs to all peers. peers size: " << peersForAE.size();
-            vector<std::thread> threads(peersForAE.size());
-            for (int i = 0; i < peersForAE.size(); i++) {
-                // if (locNextIndex[i] + MAX_LOGS_BEFORE_SNAPSHOT < commitIndex_) {
-                //     finish = false;
-                //     // send snapshot
+            bool success = true;
+            if (nextIndex + MAX_LOGS_BEFORE_SNAPSHOT < snapshotIndex) {
+                LOG(INFO) << fmt::format("Send snapshot to {}, nextIndex: {}, snapshotIndex: {}",
+                    to_string(host), nextIndex, snapshotIndex);
 
-                // } else
-                if (locNextIndex[i] <= lastLogIndex) {
-                    finish = false;
-                    threads[i] = std::thread([i, this, &peersForAE, &paramsList]() {
-                        async_sendLogsTo(i, peersForAE[i], paramsList[i], cmForAE_);
-                    });
+                success = async_sendSnapshotTo(peerIndex, host);
+            } else if (nextIndex <= lastLogIndex) {
+                LOG(INFO) << fmt::format("Send log to {}, nextIndex: {}, lastLogIndex: {}",
+                    to_string(host), nextIndex, snapshotIndex);
+
+                AppendEntriesParams params;
+                {
+                    std::lock_guard<std::mutex> guard(raftLock_);
+                    params = buildAppendEntriesParamsFor(peerIndex);
+                    gatherLogsFor(peerIndex, params);
                 }
+                success = async_sendLogsTo(peerIndex, host, params, cmForAE_);
+            } else {
+                break;
             }
 
-            for (int i = 0; i < peersForAE.size(); i++) {
-                if (threads[i].joinable())
-                    threads[i].join();
+            /*
+             * To avoid too many failed attempts, we sleep for a while if replicate logs failed
+             */
+            if (!success) {
+                std::this_thread::sleep_for(HEART_BEATS_INTERVAL);
             }
         }
     }

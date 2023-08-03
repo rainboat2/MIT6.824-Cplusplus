@@ -19,7 +19,9 @@ public:
 
     virtual void apply(ApplyMsg msg) = 0;
 
-    virtual void startSnapShot(std::string fileName, std::function<void(LogId, TermId)> callback) = 0;
+    virtual void startSnapShot(std::string filePath, std::function<void(LogId, TermId)> callback) = 0;
+
+    virtual void installSnapShot(std::string filePath) = 0;
 };
 
 #endif

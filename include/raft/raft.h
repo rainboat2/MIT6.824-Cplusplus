@@ -61,15 +61,17 @@ private:
 
     std::chrono::microseconds getElectionTimeout();
 
-    void async_sendLogsTo(int peerIndex, Host& host, AppendEntriesParams& params, ClientManager<RaftClient>& cm);
-
     void async_checkLeaderStatus() noexcept;
 
     void async_startElection() noexcept;
 
     void async_sendHeartBeats() noexcept;
 
-    void async_sendLogEntries() noexcept;
+    void async_replicateLogTo(int peerIndex, Host host) noexcept;
+
+    bool async_sendLogsTo(int peerIndex, Host host, AppendEntriesParams& params, ClientManager<RaftClient>& cm);
+
+    bool async_sendSnapshotTo(int peerIndex, Host host);
 
     void async_applyMsg() noexcept;
 

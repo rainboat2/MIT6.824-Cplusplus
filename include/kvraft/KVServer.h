@@ -36,7 +36,8 @@ public:
      * methods for state machine
      */
     void apply(ApplyMsg msg) override;
-    void startSnapShot(std::string fileName, std::function<void(LogId, TermId)> callback) override;
+    void startSnapShot(std::string filePath, std::function<void(LogId, TermId)> callback) override;
+    void installSnapShot(std::string filePath);
 
 private:
     void putAppend_internal(PutAppendReply& _return, const PutAppendParams& params);

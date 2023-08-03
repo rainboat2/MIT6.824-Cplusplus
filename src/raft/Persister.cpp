@@ -50,18 +50,18 @@ static std::istream& operator>>(std::istream& ist, Metadata& md)
     return ist;
 }
 
-Persister::Persister(std::string dirName_)
-    : metaFile_(dirName_ + "/meta.dat")
+Persister::Persister(std::string dirPath)
+    : metaFilePath_(dirPath + "/meta.dat")
     , md_({ 0, NULL_HOST })
-    , logChunkDir_(dirName_ + "/logChunks")
+    , logChunkDir_(dirPath + "/logChunks")
     , estimateLogBufSize_(0)
     , lastInBufLogId_(-1)
-    , snapshotDir_(dirName_ + "/snapshots")
+    , snapshotDir_(dirPath + "/snapshots")
 {
-    if (access(metaFile_.c_str(), F_OK) == 0) {
-        std::ifstream ifs(metaFile_);
+    if (access(metaFilePath_.c_str(), F_OK) == 0) {
+        std::ifstream ifs(metaFilePath_);
         if (!ifs.good())
-            LOG(WARNING) << "Meta file is not good: " << metaFile_;
+            LOG(WARNING) << "Meta file is not good: " << metaFilePath_;
         ifs >> md_;
     }
 
@@ -79,10 +79,10 @@ void Persister::saveTermAndVote(TermId term, Host& voteFor)
     md_.term = term;
     md_.voteFor = voteFor;
 
-    std::string tmp = metaFile_ + ".tmp";
+    std::string tmp = metaFilePath_ + ".tmp";
     std::ofstream ofs(tmp, std::ios::trunc);
     ofs << md_;
-    rename(tmp.c_str(), metaFile_.c_str());
+    rename(tmp.c_str(), metaFilePath_.c_str());
 }
 
 void Persister::saveLogs(LogId commitIndex, std::deque<LogEntry>& logs)
@@ -104,19 +104,8 @@ void Persister::saveLogs(LogId commitIndex, std::deque<LogEntry>& logs)
 
 void Persister::loadRaftState(TermId& term, Host& votedFor, std::deque<LogEntry>& logs)
 {
-    if (access(metaFile_.c_str(), F_OK) == 0) {
-        std::ifstream ifs(metaFile_);
-        if (!ifs.good())
-            LOG(WARNING) << "Meta file is not good: " << metaFile_;
-        ifs >> md_;
-        term = md_.term;
-        votedFor = md_.voteFor;
-    } else {
-        term = 1;
-        votedFor = NULL_HOST;
-    }
-
-    loadChunks();
+    term = md_.term;
+    votedFor = md_.voteFor;
     for (auto& chunk : chunkNames_) {
         auto path = logChunkDir_ + "/" + chunk;
         std::ifstream ifs(path);
@@ -133,12 +122,12 @@ void Persister::loadRaftState(TermId& term, Host& votedFor, std::deque<LogEntry>
         LOG(INFO) << fmt::format("After read, logs [{}, {}] in the memory.", logs.front().index, logs.back().index);
     }
 
-    auto ss = loadLatestSnapshot();
+    auto ss = getLatestSnapshotPath();
     if (ss != "") {
-        applySnapshot(snapshotDir_);
+        applySnapshot(ss);
     }
 
-    lastInBufLogId_ = (logs.empty()? -1 : logs.back().index);
+    lastInBufLogId_ = (logs.empty() ? -1 : logs.back().index);
 
     /*
      *  We avoid dealing with the "empty logs_" situation by adding an invalid log
@@ -217,7 +206,7 @@ int Persister::loadChunks()
     return chunkNames_.size();
 }
 
-std::string Persister::loadLatestSnapshot()
+std::string Persister::getLatestSnapshotPath()
 {
     auto snapshots = filesIn(snapshotDir_);
     std::string lastestSnapshot;
@@ -239,13 +228,12 @@ void Persister::commitSnapshot(std::string tmpName, TermId lastIncTerm, LogId la
     compactLogs(lastIncIndex);
 }
 
-void Persister::applySnapshot(std::string snapshot)
+void Persister::applySnapshot(std::string snapshotPath)
 {
-    auto path = snapshotDir_ + "/" + snapshot;
-    std::ifstream ifs(path);
+    std::ifstream ifs(snapshotPath);
 
     if (!ifs.good()) {
-        LOG(INFO) << "Apply snapshot failed! No snapshot file: " << path;
+        LOG(INFO) << "Apply snapshot failed! No snapshot file: " << snapshotPath;
         return;
     }
 

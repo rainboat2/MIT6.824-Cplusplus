@@ -117,7 +117,7 @@ void KVServer::apply(ApplyMsg msg)
     }
 }
 
-void KVServer::startSnapShot(std::string fileName, std::function<void(LogId, TermId)> callback)
+void KVServer::startSnapShot(std::string filePath, std::function<void(LogId, TermId)> callback)
 {
     pid_t pid;
     LogId lastIndex;
@@ -132,7 +132,7 @@ void KVServer::startSnapShot(std::string fileName, std::function<void(LogId, Ter
 
     if (pid == 0) {
         stopListenPort_();
-        std::ofstream ofs(fileName);
+        std::ofstream ofs(filePath);
         ofs << lastApplyIndex_ << ' ' << lastApplyTerm_ << '\n';
         for (auto it : um_) {
             ofs << it.first << ' ' << it.second << '\n';
@@ -142,6 +142,18 @@ void KVServer::startSnapShot(std::string fileName, std::function<void(LogId, Ter
     } else {
         wait(&pid);
         callback(lastIndex, lastTerm);
+    }
+}
+
+void KVServer::installSnapShot(std::string filePath)
+{
+    std::lock_guard<std::mutex> guard(lock_);
+    um_.clear();
+    std::ifstream ifs(filePath);
+    ifs >> lastApplyIndex_ >> lastApplyTerm_;
+    string key, val;
+    while (ifs >> key >> val) {
+        um_[key] = val;
     }
 }
 

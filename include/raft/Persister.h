@@ -20,7 +20,7 @@ struct Metadata {
 
 class Persister {
 public:
-    Persister(std::string dirName_);
+    Persister(std::string dirPath);
 
     ~Persister();
 
@@ -32,6 +32,8 @@ public:
 
     void commitSnapshot(std::string tmpName, TermId lastIncTerm, LogId lastIncIndex);
 
+    std::string getLatestSnapshotPath();
+
 private:
     void flushLogBuf();
 
@@ -41,16 +43,14 @@ private:
 
     int loadChunks();
 
-    std::string loadLatestSnapshot();
-
-    void applySnapshot(std::string snapshot);
+    void applySnapshot(std::string snapshotPath);
 
     void compactLogs(LogId lastIncIndex);
 
     std::vector<std::string> filesIn(std::string& dir);
 
 private:
-    std::string metaFile_;
+    std::string metaFilePath_;
     Metadata md_;
     std::string logChunkDir_;
     std::deque<LogEntry> logBuf_;

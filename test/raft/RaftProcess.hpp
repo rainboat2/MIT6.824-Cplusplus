@@ -20,15 +20,19 @@ class MockStateMachine : public StateMachineIf {
 public:
     ~MockStateMachine() { }
 
-    void apply(ApplyMsg msg)
+    void apply(ApplyMsg msg) override
     {
         LOG(INFO) << "Mock apply msg: " << msg.command;
     }
 
-    void startSnapShot(std::string fileName, std::function<void(LogId, TermId)> callback)
+    void startSnapShot(std::string filePath, std::function<void(LogId, TermId)> callback) override
     {
-        LOG(INFO) << "Mock start snapshot: " << fileName;
+        LOG(INFO) << "Mock start snapshot: " << filePath;
         callback(0, 0);
+    }
+
+    void installSnapShot(std::string filePath) override {
+        LOG(INFO) << "Install snapshot: " << filePath;
     }
 };
 
