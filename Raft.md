@@ -366,6 +366,93 @@ void RaftHandler::appendEntries(AppendEntriesResult& _return, const AppendEntrie
 
 
 
+## Raft持久化
+
+### 元数据持久化
+
+主要对voteFor和term信息进行持久化，如下为实现的代码，主要需要注意如下几点：
+
+1. 持久化过程需要保证原子性，如果读出错误的数据可能会影响raft的执行流程
+2. raft节点再更新term或voteFor时，一定要先持久化，再更新数据（持久化先行）
+
+```c++
+void Persister::saveTermAndVote(TermId term, Host& voteFor)
+{
+    md_.term = term;
+    md_.voteFor = voteFor;
+
+    std::string tmp = metaFilePath_ + ".tmp";
+    std::ofstream ofs(tmp, std::ios::trunc);
+    ofs << md_;
+    rename(tmp.c_str(), metaFilePath_.c_str());   // 通过rename保证持久过程的原子性
+}
+```
+
+### 日志持久化
+
+与持久化元数据不同，日志每次的更新是增量的，每次重复保存所有日志效率非常低，而直接将新加的日志添加到文件尾部的话又无法保证整个过程的原子性。为了解决这一问题，日志持久化将所有日志分为若干个区块，每个区块对应一个部分日志。要保存的日志会首先添加到内存缓存里面，等缓存满了之后再一起刷新到磁盘。
+
+```c++
+void Persister::saveLogs(LogId commitIndex, std::deque<LogEntry>& logs)
+{
+    for (LogId i = lastInBufLogId_ + 1; i <= commitIndex; i++) {
+        int pos = i - logs.front().index;
+        LogEntry& log = logs[pos];
+        uint es = estmateSize(log);
+        if (estimateLogBufSize_ + es > LOG_CHUNK_BYTES) {
+            flushLogBuf();             // 如果缓存已满，将缓存中的数据刷新到磁盘
+        }
+        logBuf_.push_back(log);
+        estimateLogBufSize_ += es;
+        lastInBufLogId_ = log.index;
+    }
+}
+```
+
+
+
+## 快照
+
+为了解决日志无限增长的问题，raft会定期创建快照，并清空创建快照之前的日志，如下为实现逻辑：
+
+```c++
+void RaftHandler::async_startSnapShot() noexcept
+{
+    while (true) {
+        {
+            std::unique_lock<std::mutex> lock_(raftLock_);
+            startSnapshot_.wait(lock_);
+        }
+
+        bool expected = false;
+        if (!inSnapshot_.compare_exchange_strong(expected, true))
+            continue;
+
+        LOG(INFO) << fmt::format("Start snapshot, lastLogIndex: {}, logs: {}", lastLogIndex(), logsRange(logs_));
+
+        string tmpSnapshotFile = persister_.getTmpSnapshotPath();
+        std::function<void(int, int)> callback = [tmpSnapshotFile, this](LogId lastIncludeIndex, TermId lastIncludeTerm) -> void {
+            {
+                std::lock_guard<std::mutex> guard(raftLock_);
+                persister_.commitSnapshot(tmpSnapshotFile, lastIncludeTerm, lastIncludeIndex);  // 提交快照
+                snapshotIndex_ = lastIncludeIndex;
+                snapshotTerm_ = lastIncludeTerm;
+                compactLogs();  // 清空日志
+            }
+            inSnapshot_ = false;
+        };
+
+        stateMachine_->startSnapShot(tmpSnapshotFile, callback);
+    }
+}
+```
+
+
+
+
+
+
+
 ## 实现过程中碰到的一些问题
 
 1. raft进程随机奔溃的问题，特别是在之前运行了一大堆测试代码或者电脑没有插电源的情况。分析：leader会为每个follower维护一个nextIndex，用于指向下一条需要向子节点传输的日志。如果发送的日志过于超前，就会将nextIndex对应的位置减1。
