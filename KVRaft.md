@@ -4,21 +4,21 @@
 
 > 精读论文：[In Search of an Understandable Consensus Algorithm (Extended Version)](https://pages.cs.wisc.edu/~remzi/Classes/739/Spring2004/Papers/raft.pdf)
 
-## KVServer
+## KVRaft
 
 ### 总体设计
 
-如下的代码给出KVServer节点的一个总体设计，这个节点主要包括三部分的内容：
+如下的代码给出KVRaft节点的一个总体设计，这个节点主要包括三部分的内容：
 
 1. 对客户端响应的KV接口，主要包括putAppend和get两种方法。需要注意的是，只有leader节点才会响应客户端的请求，否则会给客户端返回一个错误状态码。
 2. raft集群内部沟通的几个方法（`RaftIf`）。一般来说在设计kvraft集群的时候，每个kv节点都会对应一个raft节点，每对kv节点和raft节点之间可以独立运行监听不同的端口，通过RPC调用进行沟通，也可以合并成一个整体。本实现从运行效率和代码实现复杂度的角度考虑，采用的就是合并成一个整体的方法。
 3. 状态机相关的方法（`StateMachineIf`)。raft协议不考虑被管理的kv节点的内部实现细节，而是将其当作做一个状态机，这一点在raft论文里面有详细的说明。
 
 ```c++
-class KVServer : virtual public KVRaftIf,
+class KVRaft : virtual public KVRaftIf,
                  virtual public StateMachineIf {
 public:
-    KVServer(std::vector<Host>& peers, Host me, std::string persisterDir, std::function<void()> stopListenPort);
+    KVRaft(std::vector<Host>& peers, Host me, std::string persisterDir, std::function<void()> stopListenPort);
 
     /*
      * methods for KVRaftIf
@@ -52,7 +52,7 @@ KV操作包括`Get`和`PutAppend`两类，下面是`PutAppend`操作为例说明
 2. raft集群同步日志，提交日志最后调用`apply`方法，这是一个异步回调的过程。由于等待处理KV操作的线程有多个，而处理apply方法通常只有一个，这种场景比较适合使用`future/promise`来进行同步。
 
 ```c++
-void KVServer::putAppend(PutAppendReply& _return, const PutAppendParams& params)
+void KVRaft::putAppend(PutAppendReply& _return, const PutAppendParams& params)
 {
     StartResult sr;
     string type = (params.op == PutOp::PUT ? "PUT" : "APPEND");
@@ -60,7 +60,7 @@ void KVServer::putAppend(PutAppendReply& _return, const PutAppendParams& params)
     raft_->start(sr, command);                     // 请求raft集群同步日志
 
     if (!sr.isLeader) {
-        _return.status = KVStatus::ERR_WRONG_LEADER;     // 非Leader节点会拒绝处理请求
+        _return.status = ErrorCode::ERR_WRONG_LEADER;     // 非Leader节点会拒绝处理请求
         return;
     }
 
@@ -87,7 +87,7 @@ void KVServer::putAppend(PutAppendReply& _return, const PutAppendParams& params)
 
 ```c++
 
-void KVServer::apply(ApplyMsg msg)
+void KVRaft::apply(ApplyMsg msg)
 {
     auto& cmd = msg.command;
     std::istringstream iss(cmd.c_str());

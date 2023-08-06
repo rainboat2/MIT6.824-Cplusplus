@@ -17,6 +17,8 @@ KVRaft: KVRaft.thrift
 	$(CC) $(CPPFLAGS) $(INC) -c $@/KVRaft_types.cpp -o $@/KVRaft_types.o
 	$(CC) $(CPPFLAGS) $(INC) -c $@/Raft.cpp -o $@/Raft.o
 	$(CC) $(CPPFLAGS) $(INC) -c $@/KVRaft.cpp -o $@/KVRaft.o
+	$(CC) $(CPPFLAGS) $(INC) -c $@/Shardctrler.cpp -o $@/Shardctrler.o
+	$(CC) $(CPPFLAGS) $(INC) -c $@/ShardKVRaft.cpp -o $@/ShardKVRaft.o
 	cp $@/*.h $(INC_DIR)/rpc/kvraft
 
 MapReduce: MapReduce.thrift

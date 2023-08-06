@@ -27,10 +27,8 @@ const Host NULL_HOST;
 const RaftState INVALID_RAFTSTATE;
 
 class RaftHandler : virtual public RaftIf {
-    friend class Persister;
-
 public:
-    RaftHandler(std::vector<Host>& peers, Host me, std::string persisterDir, StateMachineIf* stateMachine);
+    RaftHandler(std::vector<Host>& peers, Host me, std::string persisterDir, StateMachineIf* stateMachine, GID gid = 0);
 
     void requestVote(RequestVoteResult& _return, const RequestVoteParams& params) override;
 
@@ -125,6 +123,8 @@ private:
     StateMachineIf* stateMachine_;
     LogId snapshotIndex_;
     TermId snapshotTerm_;
+
+    GID gid_; // the group id of raft, designed for multiraft
 };
 
 #endif

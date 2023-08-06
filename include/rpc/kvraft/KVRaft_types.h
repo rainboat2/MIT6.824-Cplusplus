@@ -21,6 +21,21 @@
 
 
 
+struct ErrorCode {
+  enum type {
+    SUCCEED = 0,
+    ERR_NO_KEY = 1,
+    ERR_WRONG_LEADER = 2,
+    ERR_NO_SUCH_SHARD_CONFIG = 3
+  };
+};
+
+extern const std::map<int, const char*> _ErrorCode_VALUES_TO_NAMES;
+
+std::ostream& operator<<(std::ostream& out, const ErrorCode::type& val);
+
+std::string to_string(const ErrorCode::type& val);
+
 struct ServerState {
   enum type {
     FOLLOWER = 0,
@@ -48,23 +63,13 @@ std::ostream& operator<<(std::ostream& out, const PutOp::type& val);
 
 std::string to_string(const PutOp::type& val);
 
-struct KVStatus {
-  enum type {
-    OK = 0,
-    ERR_NO_KEY = 1,
-    ERR_WRONG_LEADER = 2
-  };
-};
-
-extern const std::map<int, const char*> _KVStatus_VALUES_TO_NAMES;
-
-std::ostream& operator<<(std::ostream& out, const KVStatus::type& val);
-
-std::string to_string(const KVStatus::type& val);
-
 typedef int32_t TermId;
 
 typedef int32_t LogId;
+
+typedef int32_t GID;
+
+typedef int32_t ShardId;
 
 class Host;
 
@@ -91,6 +96,28 @@ class GetParams;
 class GetReply;
 
 class InstallSnapshotParams;
+
+class JoinArgs;
+
+class JoinReply;
+
+class LeaveArgs;
+
+class LeaveReply;
+
+class MoveArgs;
+
+class MoveReply;
+
+class QueryArgs;
+
+class Config;
+
+class QueryReply;
+
+class PullShardParams;
+
+class PullShardReply;
 
 typedef struct _Host__isset {
   _Host__isset() : ip(false), port(false) {}
@@ -143,11 +170,12 @@ void swap(Host &a, Host &b);
 std::ostream& operator<<(std::ostream& out, const Host& obj);
 
 typedef struct _RequestVoteParams__isset {
-  _RequestVoteParams__isset() : term(false), candidateId(false), lastLogIndex(false), LastLogTerm(false) {}
+  _RequestVoteParams__isset() : term(false), candidateId(false), lastLogIndex(false), LastLogTerm(false), gid(false) {}
   bool term :1;
   bool candidateId :1;
   bool lastLogIndex :1;
   bool LastLogTerm :1;
+  bool gid :1;
 } _RequestVoteParams__isset;
 
 class RequestVoteParams : public virtual ::apache::thrift::TBase {
@@ -158,7 +186,8 @@ class RequestVoteParams : public virtual ::apache::thrift::TBase {
   RequestVoteParams() noexcept
                     : term(0),
                       lastLogIndex(0),
-                      LastLogTerm(0) {
+                      LastLogTerm(0),
+                      gid(0) {
   }
 
   virtual ~RequestVoteParams() noexcept;
@@ -166,6 +195,7 @@ class RequestVoteParams : public virtual ::apache::thrift::TBase {
   Host candidateId;
   LogId lastLogIndex;
   TermId LastLogTerm;
+  GID gid;
 
   _RequestVoteParams__isset __isset;
 
@@ -177,6 +207,8 @@ class RequestVoteParams : public virtual ::apache::thrift::TBase {
 
   void __set_LastLogTerm(const TermId val);
 
+  void __set_gid(const GID val);
+
   bool operator == (const RequestVoteParams & rhs) const
   {
     if (!(term == rhs.term))
@@ -186,6 +218,8 @@ class RequestVoteParams : public virtual ::apache::thrift::TBase {
     if (!(lastLogIndex == rhs.lastLogIndex))
       return false;
     if (!(LastLogTerm == rhs.LastLogTerm))
+      return false;
+    if (!(gid == rhs.gid))
       return false;
     return true;
   }
@@ -206,9 +240,10 @@ void swap(RequestVoteParams &a, RequestVoteParams &b);
 std::ostream& operator<<(std::ostream& out, const RequestVoteParams& obj);
 
 typedef struct _RequestVoteResult__isset {
-  _RequestVoteResult__isset() : term(false), voteGranted(false) {}
+  _RequestVoteResult__isset() : term(false), voteGranted(false), code(false) {}
   bool term :1;
   bool voteGranted :1;
+  bool code :1;
 } _RequestVoteResult__isset;
 
 class RequestVoteResult : public virtual ::apache::thrift::TBase {
@@ -218,12 +253,18 @@ class RequestVoteResult : public virtual ::apache::thrift::TBase {
   RequestVoteResult& operator=(const RequestVoteResult&) noexcept;
   RequestVoteResult() noexcept
                     : term(0),
-                      voteGranted(0) {
+                      voteGranted(0),
+                      code(static_cast<ErrorCode::type>(0)) {
   }
 
   virtual ~RequestVoteResult() noexcept;
   TermId term;
   bool voteGranted;
+  /**
+   * 
+   * @see ErrorCode
+   */
+  ErrorCode::type code;
 
   _RequestVoteResult__isset __isset;
 
@@ -231,11 +272,15 @@ class RequestVoteResult : public virtual ::apache::thrift::TBase {
 
   void __set_voteGranted(const bool val);
 
+  void __set_code(const ErrorCode::type val);
+
   bool operator == (const RequestVoteResult & rhs) const
   {
     if (!(term == rhs.term))
       return false;
     if (!(voteGranted == rhs.voteGranted))
+      return false;
+    if (!(code == rhs.code))
       return false;
     return true;
   }
@@ -313,13 +358,14 @@ void swap(LogEntry &a, LogEntry &b);
 std::ostream& operator<<(std::ostream& out, const LogEntry& obj);
 
 typedef struct _AppendEntriesParams__isset {
-  _AppendEntriesParams__isset() : term(false), leaderId(false), prevLogIndex(false), prevLogTerm(false), entries(false), leaderCommit(false) {}
+  _AppendEntriesParams__isset() : term(false), leaderId(false), prevLogIndex(false), prevLogTerm(false), entries(false), leaderCommit(false), gid(false) {}
   bool term :1;
   bool leaderId :1;
   bool prevLogIndex :1;
   bool prevLogTerm :1;
   bool entries :1;
   bool leaderCommit :1;
+  bool gid :1;
 } _AppendEntriesParams__isset;
 
 class AppendEntriesParams : public virtual ::apache::thrift::TBase {
@@ -331,7 +377,8 @@ class AppendEntriesParams : public virtual ::apache::thrift::TBase {
                       : term(0),
                         prevLogIndex(0),
                         prevLogTerm(0),
-                        leaderCommit(0) {
+                        leaderCommit(0),
+                        gid(0) {
   }
 
   virtual ~AppendEntriesParams() noexcept;
@@ -341,6 +388,7 @@ class AppendEntriesParams : public virtual ::apache::thrift::TBase {
   TermId prevLogTerm;
   std::vector<LogEntry>  entries;
   LogId leaderCommit;
+  GID gid;
 
   _AppendEntriesParams__isset __isset;
 
@@ -356,6 +404,8 @@ class AppendEntriesParams : public virtual ::apache::thrift::TBase {
 
   void __set_leaderCommit(const LogId val);
 
+  void __set_gid(const GID val);
+
   bool operator == (const AppendEntriesParams & rhs) const
   {
     if (!(term == rhs.term))
@@ -369,6 +419,8 @@ class AppendEntriesParams : public virtual ::apache::thrift::TBase {
     if (!(entries == rhs.entries))
       return false;
     if (!(leaderCommit == rhs.leaderCommit))
+      return false;
+    if (!(gid == rhs.gid))
       return false;
     return true;
   }
@@ -389,9 +441,10 @@ void swap(AppendEntriesParams &a, AppendEntriesParams &b);
 std::ostream& operator<<(std::ostream& out, const AppendEntriesParams& obj);
 
 typedef struct _AppendEntriesResult__isset {
-  _AppendEntriesResult__isset() : term(false), success(false) {}
+  _AppendEntriesResult__isset() : term(false), success(false), code(false) {}
   bool term :1;
   bool success :1;
+  bool code :1;
 } _AppendEntriesResult__isset;
 
 class AppendEntriesResult : public virtual ::apache::thrift::TBase {
@@ -401,12 +454,18 @@ class AppendEntriesResult : public virtual ::apache::thrift::TBase {
   AppendEntriesResult& operator=(const AppendEntriesResult&) noexcept;
   AppendEntriesResult() noexcept
                       : term(0),
-                        success(0) {
+                        success(0),
+                        code(static_cast<ErrorCode::type>(0)) {
   }
 
   virtual ~AppendEntriesResult() noexcept;
   TermId term;
   bool success;
+  /**
+   * 
+   * @see ErrorCode
+   */
+  ErrorCode::type code;
 
   _AppendEntriesResult__isset __isset;
 
@@ -414,11 +473,15 @@ class AppendEntriesResult : public virtual ::apache::thrift::TBase {
 
   void __set_success(const bool val);
 
+  void __set_code(const ErrorCode::type val);
+
   bool operator == (const AppendEntriesResult & rhs) const
   {
     if (!(term == rhs.term))
       return false;
     if (!(success == rhs.success))
+      return false;
+    if (!(code == rhs.code))
       return false;
     return true;
   }
@@ -525,10 +588,11 @@ void swap(RaftState &a, RaftState &b);
 std::ostream& operator<<(std::ostream& out, const RaftState& obj);
 
 typedef struct _StartResult__isset {
-  _StartResult__isset() : expectedLogIndex(false), term(false), isLeader(false) {}
+  _StartResult__isset() : expectedLogIndex(false), term(false), isLeader(false), code(false) {}
   bool expectedLogIndex :1;
   bool term :1;
   bool isLeader :1;
+  bool code :1;
 } _StartResult__isset;
 
 class StartResult : public virtual ::apache::thrift::TBase {
@@ -539,13 +603,19 @@ class StartResult : public virtual ::apache::thrift::TBase {
   StartResult() noexcept
               : expectedLogIndex(0),
                 term(0),
-                isLeader(0) {
+                isLeader(0),
+                code(static_cast<ErrorCode::type>(0)) {
   }
 
   virtual ~StartResult() noexcept;
   LogId expectedLogIndex;
   TermId term;
   bool isLeader;
+  /**
+   * 
+   * @see ErrorCode
+   */
+  ErrorCode::type code;
 
   _StartResult__isset __isset;
 
@@ -555,6 +625,8 @@ class StartResult : public virtual ::apache::thrift::TBase {
 
   void __set_isLeader(const bool val);
 
+  void __set_code(const ErrorCode::type val);
+
   bool operator == (const StartResult & rhs) const
   {
     if (!(expectedLogIndex == rhs.expectedLogIndex))
@@ -562,6 +634,8 @@ class StartResult : public virtual ::apache::thrift::TBase {
     if (!(term == rhs.term))
       return false;
     if (!(isLeader == rhs.isLeader))
+      return false;
+    if (!(code == rhs.code))
       return false;
     return true;
   }
@@ -653,19 +727,19 @@ class PutAppendReply : public virtual ::apache::thrift::TBase {
   PutAppendReply(const PutAppendReply&) noexcept;
   PutAppendReply& operator=(const PutAppendReply&) noexcept;
   PutAppendReply() noexcept
-                 : status(static_cast<KVStatus::type>(0)) {
+                 : status(static_cast<ErrorCode::type>(0)) {
   }
 
   virtual ~PutAppendReply() noexcept;
   /**
    * 
-   * @see KVStatus
+   * @see ErrorCode
    */
-  KVStatus::type status;
+  ErrorCode::type status;
 
   _PutAppendReply__isset __isset;
 
-  void __set_status(const KVStatus::type val);
+  void __set_status(const ErrorCode::type val);
 
   bool operator == (const PutAppendReply & rhs) const
   {
@@ -744,21 +818,21 @@ class GetReply : public virtual ::apache::thrift::TBase {
   GetReply(const GetReply&);
   GetReply& operator=(const GetReply&);
   GetReply() noexcept
-           : status(static_cast<KVStatus::type>(0)),
+           : status(static_cast<ErrorCode::type>(0)),
              value() {
   }
 
   virtual ~GetReply() noexcept;
   /**
    * 
-   * @see KVStatus
+   * @see ErrorCode
    */
-  KVStatus::type status;
+  ErrorCode::type status;
   std::string value;
 
   _GetReply__isset __isset;
 
-  void __set_status(const KVStatus::type val);
+  void __set_status(const ErrorCode::type val);
 
   void __set_value(const std::string& val);
 
@@ -787,7 +861,7 @@ void swap(GetReply &a, GetReply &b);
 std::ostream& operator<<(std::ostream& out, const GetReply& obj);
 
 typedef struct _InstallSnapshotParams__isset {
-  _InstallSnapshotParams__isset() : term(false), leaderId(false), lastIncludedIndex(false), lastIncludedTerm(false), offset(false), data(false), done(false) {}
+  _InstallSnapshotParams__isset() : term(false), leaderId(false), lastIncludedIndex(false), lastIncludedTerm(false), offset(false), data(false), done(false), gid(false) {}
   bool term :1;
   bool leaderId :1;
   bool lastIncludedIndex :1;
@@ -795,6 +869,7 @@ typedef struct _InstallSnapshotParams__isset {
   bool offset :1;
   bool data :1;
   bool done :1;
+  bool gid :1;
 } _InstallSnapshotParams__isset;
 
 class InstallSnapshotParams : public virtual ::apache::thrift::TBase {
@@ -808,7 +883,8 @@ class InstallSnapshotParams : public virtual ::apache::thrift::TBase {
                           lastIncludedTerm(0),
                           offset(0),
                           data(),
-                          done(0) {
+                          done(0),
+                          gid(0) {
   }
 
   virtual ~InstallSnapshotParams() noexcept;
@@ -819,6 +895,7 @@ class InstallSnapshotParams : public virtual ::apache::thrift::TBase {
   int32_t offset;
   std::string data;
   bool done;
+  GID gid;
 
   _InstallSnapshotParams__isset __isset;
 
@@ -836,6 +913,8 @@ class InstallSnapshotParams : public virtual ::apache::thrift::TBase {
 
   void __set_done(const bool val);
 
+  void __set_gid(const GID val);
+
   bool operator == (const InstallSnapshotParams & rhs) const
   {
     if (!(term == rhs.term))
@@ -851,6 +930,8 @@ class InstallSnapshotParams : public virtual ::apache::thrift::TBase {
     if (!(data == rhs.data))
       return false;
     if (!(done == rhs.done))
+      return false;
+    if (!(gid == rhs.gid))
       return false;
     return true;
   }
@@ -869,6 +950,550 @@ class InstallSnapshotParams : public virtual ::apache::thrift::TBase {
 void swap(InstallSnapshotParams &a, InstallSnapshotParams &b);
 
 std::ostream& operator<<(std::ostream& out, const InstallSnapshotParams& obj);
+
+typedef struct _JoinArgs__isset {
+  _JoinArgs__isset() : servers(false) {}
+  bool servers :1;
+} _JoinArgs__isset;
+
+class JoinArgs : public virtual ::apache::thrift::TBase {
+ public:
+
+  JoinArgs(const JoinArgs&);
+  JoinArgs& operator=(const JoinArgs&);
+  JoinArgs() noexcept {
+  }
+
+  virtual ~JoinArgs() noexcept;
+  std::map<GID, std::vector<Host> >  servers;
+
+  _JoinArgs__isset __isset;
+
+  void __set_servers(const std::map<GID, std::vector<Host> > & val);
+
+  bool operator == (const JoinArgs & rhs) const
+  {
+    if (!(servers == rhs.servers))
+      return false;
+    return true;
+  }
+  bool operator != (const JoinArgs &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const JoinArgs & ) const;
+
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(JoinArgs &a, JoinArgs &b);
+
+std::ostream& operator<<(std::ostream& out, const JoinArgs& obj);
+
+typedef struct _JoinReply__isset {
+  _JoinReply__isset() : wrongLeader(false), code(false) {}
+  bool wrongLeader :1;
+  bool code :1;
+} _JoinReply__isset;
+
+class JoinReply : public virtual ::apache::thrift::TBase {
+ public:
+
+  JoinReply(const JoinReply&) noexcept;
+  JoinReply& operator=(const JoinReply&) noexcept;
+  JoinReply() noexcept
+            : wrongLeader(0),
+              code(static_cast<ErrorCode::type>(0)) {
+  }
+
+  virtual ~JoinReply() noexcept;
+  bool wrongLeader;
+  /**
+   * 
+   * @see ErrorCode
+   */
+  ErrorCode::type code;
+
+  _JoinReply__isset __isset;
+
+  void __set_wrongLeader(const bool val);
+
+  void __set_code(const ErrorCode::type val);
+
+  bool operator == (const JoinReply & rhs) const
+  {
+    if (!(wrongLeader == rhs.wrongLeader))
+      return false;
+    if (!(code == rhs.code))
+      return false;
+    return true;
+  }
+  bool operator != (const JoinReply &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const JoinReply & ) const;
+
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(JoinReply &a, JoinReply &b);
+
+std::ostream& operator<<(std::ostream& out, const JoinReply& obj);
+
+typedef struct _LeaveArgs__isset {
+  _LeaveArgs__isset() : gids(false) {}
+  bool gids :1;
+} _LeaveArgs__isset;
+
+class LeaveArgs : public virtual ::apache::thrift::TBase {
+ public:
+
+  LeaveArgs(const LeaveArgs&);
+  LeaveArgs& operator=(const LeaveArgs&);
+  LeaveArgs() noexcept {
+  }
+
+  virtual ~LeaveArgs() noexcept;
+  std::vector<GID>  gids;
+
+  _LeaveArgs__isset __isset;
+
+  void __set_gids(const std::vector<GID> & val);
+
+  bool operator == (const LeaveArgs & rhs) const
+  {
+    if (!(gids == rhs.gids))
+      return false;
+    return true;
+  }
+  bool operator != (const LeaveArgs &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const LeaveArgs & ) const;
+
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(LeaveArgs &a, LeaveArgs &b);
+
+std::ostream& operator<<(std::ostream& out, const LeaveArgs& obj);
+
+typedef struct _LeaveReply__isset {
+  _LeaveReply__isset() : wrongLeader(false), code(false) {}
+  bool wrongLeader :1;
+  bool code :1;
+} _LeaveReply__isset;
+
+class LeaveReply : public virtual ::apache::thrift::TBase {
+ public:
+
+  LeaveReply(const LeaveReply&) noexcept;
+  LeaveReply& operator=(const LeaveReply&) noexcept;
+  LeaveReply() noexcept
+             : wrongLeader(0),
+               code(static_cast<ErrorCode::type>(0)) {
+  }
+
+  virtual ~LeaveReply() noexcept;
+  bool wrongLeader;
+  /**
+   * 
+   * @see ErrorCode
+   */
+  ErrorCode::type code;
+
+  _LeaveReply__isset __isset;
+
+  void __set_wrongLeader(const bool val);
+
+  void __set_code(const ErrorCode::type val);
+
+  bool operator == (const LeaveReply & rhs) const
+  {
+    if (!(wrongLeader == rhs.wrongLeader))
+      return false;
+    if (!(code == rhs.code))
+      return false;
+    return true;
+  }
+  bool operator != (const LeaveReply &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const LeaveReply & ) const;
+
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(LeaveReply &a, LeaveReply &b);
+
+std::ostream& operator<<(std::ostream& out, const LeaveReply& obj);
+
+typedef struct _MoveArgs__isset {
+  _MoveArgs__isset() : shard(false), gid(false) {}
+  bool shard :1;
+  bool gid :1;
+} _MoveArgs__isset;
+
+class MoveArgs : public virtual ::apache::thrift::TBase {
+ public:
+
+  MoveArgs(const MoveArgs&) noexcept;
+  MoveArgs& operator=(const MoveArgs&) noexcept;
+  MoveArgs() noexcept
+           : shard(0),
+             gid(0) {
+  }
+
+  virtual ~MoveArgs() noexcept;
+  ShardId shard;
+  GID gid;
+
+  _MoveArgs__isset __isset;
+
+  void __set_shard(const ShardId val);
+
+  void __set_gid(const GID val);
+
+  bool operator == (const MoveArgs & rhs) const
+  {
+    if (!(shard == rhs.shard))
+      return false;
+    if (!(gid == rhs.gid))
+      return false;
+    return true;
+  }
+  bool operator != (const MoveArgs &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const MoveArgs & ) const;
+
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(MoveArgs &a, MoveArgs &b);
+
+std::ostream& operator<<(std::ostream& out, const MoveArgs& obj);
+
+typedef struct _MoveReply__isset {
+  _MoveReply__isset() : wrongLeader(false), code(false) {}
+  bool wrongLeader :1;
+  bool code :1;
+} _MoveReply__isset;
+
+class MoveReply : public virtual ::apache::thrift::TBase {
+ public:
+
+  MoveReply(const MoveReply&) noexcept;
+  MoveReply& operator=(const MoveReply&) noexcept;
+  MoveReply() noexcept
+            : wrongLeader(0),
+              code(static_cast<ErrorCode::type>(0)) {
+  }
+
+  virtual ~MoveReply() noexcept;
+  bool wrongLeader;
+  /**
+   * 
+   * @see ErrorCode
+   */
+  ErrorCode::type code;
+
+  _MoveReply__isset __isset;
+
+  void __set_wrongLeader(const bool val);
+
+  void __set_code(const ErrorCode::type val);
+
+  bool operator == (const MoveReply & rhs) const
+  {
+    if (!(wrongLeader == rhs.wrongLeader))
+      return false;
+    if (!(code == rhs.code))
+      return false;
+    return true;
+  }
+  bool operator != (const MoveReply &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const MoveReply & ) const;
+
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(MoveReply &a, MoveReply &b);
+
+std::ostream& operator<<(std::ostream& out, const MoveReply& obj);
+
+typedef struct _QueryArgs__isset {
+  _QueryArgs__isset() : configNum(false) {}
+  bool configNum :1;
+} _QueryArgs__isset;
+
+class QueryArgs : public virtual ::apache::thrift::TBase {
+ public:
+
+  QueryArgs(const QueryArgs&) noexcept;
+  QueryArgs& operator=(const QueryArgs&) noexcept;
+  QueryArgs() noexcept
+            : configNum(0) {
+  }
+
+  virtual ~QueryArgs() noexcept;
+  int32_t configNum;
+
+  _QueryArgs__isset __isset;
+
+  void __set_configNum(const int32_t val);
+
+  bool operator == (const QueryArgs & rhs) const
+  {
+    if (!(configNum == rhs.configNum))
+      return false;
+    return true;
+  }
+  bool operator != (const QueryArgs &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const QueryArgs & ) const;
+
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(QueryArgs &a, QueryArgs &b);
+
+std::ostream& operator<<(std::ostream& out, const QueryArgs& obj);
+
+typedef struct _Config__isset {
+  _Config__isset() : configNum(false), shard2gid(false), gid2shards_(false) {}
+  bool configNum :1;
+  bool shard2gid :1;
+  bool gid2shards_ :1;
+} _Config__isset;
+
+class Config : public virtual ::apache::thrift::TBase {
+ public:
+
+  Config(const Config&);
+  Config& operator=(const Config&);
+  Config() noexcept
+         : configNum(0) {
+  }
+
+  virtual ~Config() noexcept;
+  int32_t configNum;
+  std::vector<GID>  shard2gid;
+  std::map<GID, std::set<ShardId> >  gid2shards_;
+
+  _Config__isset __isset;
+
+  void __set_configNum(const int32_t val);
+
+  void __set_shard2gid(const std::vector<GID> & val);
+
+  void __set_gid2shards_(const std::map<GID, std::set<ShardId> > & val);
+
+  bool operator == (const Config & rhs) const
+  {
+    if (!(configNum == rhs.configNum))
+      return false;
+    if (!(shard2gid == rhs.shard2gid))
+      return false;
+    if (!(gid2shards_ == rhs.gid2shards_))
+      return false;
+    return true;
+  }
+  bool operator != (const Config &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const Config & ) const;
+
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(Config &a, Config &b);
+
+std::ostream& operator<<(std::ostream& out, const Config& obj);
+
+typedef struct _QueryReply__isset {
+  _QueryReply__isset() : wrongLeader(false), config(false), code(false) {}
+  bool wrongLeader :1;
+  bool config :1;
+  bool code :1;
+} _QueryReply__isset;
+
+class QueryReply : public virtual ::apache::thrift::TBase {
+ public:
+
+  QueryReply(const QueryReply&);
+  QueryReply& operator=(const QueryReply&);
+  QueryReply() noexcept
+             : wrongLeader(0),
+               code(static_cast<ErrorCode::type>(0)) {
+  }
+
+  virtual ~QueryReply() noexcept;
+  bool wrongLeader;
+  Config config;
+  /**
+   * 
+   * @see ErrorCode
+   */
+  ErrorCode::type code;
+
+  _QueryReply__isset __isset;
+
+  void __set_wrongLeader(const bool val);
+
+  void __set_config(const Config& val);
+
+  void __set_code(const ErrorCode::type val);
+
+  bool operator == (const QueryReply & rhs) const
+  {
+    if (!(wrongLeader == rhs.wrongLeader))
+      return false;
+    if (!(config == rhs.config))
+      return false;
+    if (!(code == rhs.code))
+      return false;
+    return true;
+  }
+  bool operator != (const QueryReply &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const QueryReply & ) const;
+
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(QueryReply &a, QueryReply &b);
+
+std::ostream& operator<<(std::ostream& out, const QueryReply& obj);
+
+typedef struct _PullShardParams__isset {
+  _PullShardParams__isset() : id(false) {}
+  bool id :1;
+} _PullShardParams__isset;
+
+class PullShardParams : public virtual ::apache::thrift::TBase {
+ public:
+
+  PullShardParams(const PullShardParams&) noexcept;
+  PullShardParams& operator=(const PullShardParams&) noexcept;
+  PullShardParams() noexcept
+                  : id(0) {
+  }
+
+  virtual ~PullShardParams() noexcept;
+  ShardId id;
+
+  _PullShardParams__isset __isset;
+
+  void __set_id(const ShardId val);
+
+  bool operator == (const PullShardParams & rhs) const
+  {
+    if (!(id == rhs.id))
+      return false;
+    return true;
+  }
+  bool operator != (const PullShardParams &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const PullShardParams & ) const;
+
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(PullShardParams &a, PullShardParams &b);
+
+std::ostream& operator<<(std::ostream& out, const PullShardParams& obj);
+
+typedef struct _PullShardReply__isset {
+  _PullShardReply__isset() : code(false) {}
+  bool code :1;
+} _PullShardReply__isset;
+
+class PullShardReply : public virtual ::apache::thrift::TBase {
+ public:
+
+  PullShardReply(const PullShardReply&) noexcept;
+  PullShardReply& operator=(const PullShardReply&) noexcept;
+  PullShardReply() noexcept
+                 : code(static_cast<ErrorCode::type>(0)) {
+  }
+
+  virtual ~PullShardReply() noexcept;
+  /**
+   * 
+   * @see ErrorCode
+   */
+  ErrorCode::type code;
+
+  _PullShardReply__isset __isset;
+
+  void __set_code(const ErrorCode::type val);
+
+  bool operator == (const PullShardReply & rhs) const
+  {
+    if (!(code == rhs.code))
+      return false;
+    return true;
+  }
+  bool operator != (const PullShardReply &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const PullShardReply & ) const;
+
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(PullShardReply &a, PullShardReply &b);
+
+std::ostream& operator<<(std::ostream& out, const PullShardReply& obj);
 
 
 

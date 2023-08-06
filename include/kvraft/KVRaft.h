@@ -13,10 +13,10 @@
 #include <raft/raft.h>
 #include <rpc/kvraft/KVRaft.h>
 
-class KVServer : virtual public KVRaftIf,
+class KVRaft : virtual public KVRaftIf,
                  virtual public StateMachineIf {
 public:
-    KVServer(std::vector<Host>& peers, Host me, std::string persisterDir, std::function<void()> stopListenPort);
+    KVRaft(std::vector<Host>& peers, Host me, std::string persisterDir, std::function<void()> stopListenPort);
 
     /*
      * methods for KVRaftIf
@@ -55,23 +55,23 @@ private:
     TermId lastApplyTerm_;
 };
 
-inline void KVServer::requestVote(RequestVoteResult& _return, const RequestVoteParams& params)
+inline void KVRaft::requestVote(RequestVoteResult& _return, const RequestVoteParams& params)
 {
     raft_->requestVote(_return, params);
 }
-inline void KVServer::appendEntries(AppendEntriesResult& _return, const AppendEntriesParams& params)
+inline void KVRaft::appendEntries(AppendEntriesResult& _return, const AppendEntriesParams& params)
 {
     raft_->appendEntries(_return, params);
 }
-inline void KVServer::getState(RaftState& _return)
+inline void KVRaft::getState(RaftState& _return)
 {
     raft_->getState(_return);
 }
-inline void KVServer::start(StartResult& _return, const std::string& command)
+inline void KVRaft::start(StartResult& _return, const std::string& command)
 {
     raft_->start(_return, command);
 }
-inline TermId KVServer::installSnapshot(const InstallSnapshotParams& params)
+inline TermId KVRaft::installSnapshot(const InstallSnapshotParams& params)
 {
     return raft_->installSnapshot(params);
 }

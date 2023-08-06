@@ -1,4 +1,4 @@
-TARGETS = MapReduce raft kvraft rpc 
+TARGETS = MapReduce raft kvraft rpc shardkv
 .PHONY: $(TARGETS) count-line clean
 
 all: $(TARGETS)
@@ -15,6 +15,9 @@ kvraft: rpc
 rpc:
 	make -C src/$@
 
+shardkv:
+	make -C src/$@
+
 count-line:
 	find . -type f    \
 		| grep -E ".*\.(cpp|h|hpp|sh|py|thrift)|Makefile"   \
@@ -27,4 +30,5 @@ clean:
 	make -C src/MapReduce clean
 	make -C src/raft clean 
 	make -C src/kvraft clean
+	make -C src/shardkv clean
 	make -C src/rpc clean

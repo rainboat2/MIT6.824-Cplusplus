@@ -34,7 +34,7 @@ using std::string;
 using std::vector;
 using time_point = std::chrono::steady_clock::time_point;
 
-RaftHandler::RaftHandler(vector<Host>& peers, Host me, string persisterDir, StateMachineIf* stateMachine)
+RaftHandler::RaftHandler(vector<Host>& peers, Host me, string persisterDir, StateMachineIf* stateMachine, GID gid)
     : currentTerm_(0)
     , votedFor_(NULL_HOST)
     , commitIndex_(0)
@@ -54,6 +54,7 @@ RaftHandler::RaftHandler(vector<Host>& peers, Host me, string persisterDir, Stat
     , stateMachine_(stateMachine)
     , snapshotIndex_(0)
     , snapshotTerm_(0)
+    , gid_(gid)
 {
     switchToFollow();
 
@@ -220,9 +221,11 @@ void RaftHandler::getState(RaftState& _return)
 void RaftHandler::start(StartResult& _return, const std::string& command)
 {
     std::lock_guard<std::mutex> guard(raftLock_);
+    _return.code = ErrorCode::SUCCEED;
 
     if (state_ != ServerState::LEADER) {
         _return.isLeader = false;
+        _return.code = ErrorCode::ERR_WRONG_LEADER;
         return;
     }
 
@@ -362,6 +365,7 @@ AppendEntriesParams RaftHandler::buildAppendEntriesParamsFor(int peerIndex)
     }
 
     params.leaderCommit = commitIndex_;
+    params.gid = gid_;
     return params;
 }
 
@@ -460,6 +464,7 @@ bool RaftHandler::async_sendSnapshotTo(int peerIndex, Host host)
         params.term = currentTerm_;
         params.lastIncludedIndex = snapshotIndex_;
         params.lastIncludedTerm = snapshotTerm_;
+        params.gid = gid_;
     }
 
     LOG(INFO) << fmt::format("Send snapshot to {}", to_string(host));
@@ -553,6 +558,7 @@ void RaftHandler::async_startElection() noexcept
         params.candidateId = me_;
         params.lastLogIndex = lastLogIndex();
         params.LastLogTerm = lastLogTerm();
+        params.gid = gid_;
     }
 
     std::atomic<int> voteCnt(1);

@@ -14,7 +14,7 @@
 #include <thrift/transport/TSocket.h>
 #include <thrift/transport/TTransportUtils.h>
 
-#include <kvraft/KVServer.h>
+#include <kvraft/KVRaft.h>
 
 class KVRaftProcess {
 public:
@@ -56,7 +56,7 @@ public:
             auto stopListenPort = [serverTransport]() {
                 serverTransport->close();
             };
-            std::shared_ptr<KVServer> handler(new KVServer(peers_, me_, log_dir_, stopListenPort));
+            std::shared_ptr<KVRaft> handler(new KVRaft(peers_, me_, log_dir_, stopListenPort));
             std::shared_ptr<TProcessor> processor(new KVRaftProcessor(handler));
 
             TThreadedServer server(processor, serverTransport, transportFactory, protocolFactory);

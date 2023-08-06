@@ -1,4 +1,4 @@
-#include <kvraft/KVServer.h>
+#include <kvraft/KVRaft.h>
 #include <rpc/kvraft/KVRaft.h>
 #include <tools/RaftFlags.hpp>
 
@@ -39,7 +39,7 @@ int main(int argc, char** argv)
     auto stopListenPort = [serverTransport]() {
         serverTransport->close();
     };
-    std::shared_ptr<KVServer> handler(new KVServer(peers, me, FLAGS_log_dir, stopListenPort));
+    std::shared_ptr<KVRaft> handler(new KVRaft(peers, me, FLAGS_log_dir, stopListenPort));
     std::shared_ptr<TProcessor> processor(new KVRaftProcessor(handler));
 
     TThreadedServer server(processor, serverTransport, transportFactory, protocolFactory);

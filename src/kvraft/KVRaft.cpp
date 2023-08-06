@@ -1,7 +1,7 @@
 #include <fstream>
 #include <sstream>
 
-#include <kvraft/KVServer.h>
+#include <kvraft/KVRaft.h>
 #include <rpc/kvraft/KVRaft_types.h>
 #include <tools/Timer.hpp>
 
@@ -11,13 +11,13 @@
 using std::string;
 using std::vector;
 
-KVServer::KVServer(vector<Host>& peers, Host me, string persisterDir, std::function<void()> stopListenPort)
+KVRaft::KVRaft(vector<Host>& peers, Host me, string persisterDir, std::function<void()> stopListenPort)
     : raft_(std::make_shared<RaftHandler>(peers, me, persisterDir, this))
     , stopListenPort_(stopListenPort)
 {
 }
 
-void KVServer::putAppend(PutAppendReply& _return, const PutAppendParams& params)
+void KVRaft::putAppend(PutAppendReply& _return, const PutAppendParams& params)
 {
     StartResult sr;
     string type = (params.op == PutOp::PUT ? "PUT" : "APPEND");
@@ -25,7 +25,7 @@ void KVServer::putAppend(PutAppendReply& _return, const PutAppendParams& params)
     raft_->start(sr, command);
 
     if (!sr.isLeader) {
-        _return.status = KVStatus::ERR_WRONG_LEADER;
+        _return.status = ErrorCode::ERR_WRONG_LEADER;
         return;
     }
 
@@ -41,14 +41,14 @@ void KVServer::putAppend(PutAppendReply& _return, const PutAppendParams& params)
     _return = std::move(f.get());
 }
 
-void KVServer::get(GetReply& _return, const GetParams& params)
+void KVRaft::get(GetReply& _return, const GetParams& params)
 {
     StartResult sr;
     string command = fmt::format("GET {}", params.key);
     raft_->start(sr, command);
 
     if (!sr.isLeader) {
-        _return.status = KVStatus::ERR_WRONG_LEADER;
+        _return.status = ErrorCode::ERR_WRONG_LEADER;
         return;
     }
 
@@ -64,7 +64,7 @@ void KVServer::get(GetReply& _return, const GetParams& params)
     _return = std::move(f.get());
 }
 
-void KVServer::apply(ApplyMsg msg)
+void KVRaft::apply(ApplyMsg msg)
 {
     LOG(INFO) << "ApplyMsg: " << msg.commandIndex;
     auto& cmd = msg.command;
@@ -117,7 +117,7 @@ void KVServer::apply(ApplyMsg msg)
     }
 }
 
-void KVServer::startSnapShot(std::string filePath, std::function<void(LogId, TermId)> callback)
+void KVRaft::startSnapShot(std::string filePath, std::function<void(LogId, TermId)> callback)
 {
     pid_t pid;
     LogId lastIndex;
@@ -145,7 +145,7 @@ void KVServer::startSnapShot(std::string filePath, std::function<void(LogId, Ter
     }
 }
 
-void KVServer::applySnapShot(std::string filePath)
+void KVRaft::applySnapShot(std::string filePath)
 {
     std::lock_guard<std::mutex> guard(lock_);
     um_.clear();
@@ -157,7 +157,7 @@ void KVServer::applySnapShot(std::string filePath)
     }
 }
 
-void KVServer::putAppend_internal(PutAppendReply& _return, const PutAppendParams& params)
+void KVRaft::putAppend_internal(PutAppendReply& _return, const PutAppendParams& params)
 {
     switch (params.op) {
     case PutOp::PUT:
@@ -172,15 +172,15 @@ void KVServer::putAppend_internal(PutAppendReply& _return, const PutAppendParams
         LOG(FATAL) << "Unexpected operation: " << params.op;
         break;
     }
-    _return.status = KVStatus::OK;
+    _return.status = ErrorCode::SUCCEED;
 }
 
-void KVServer::get_internal(GetReply& _return, const GetParams& params)
+void KVRaft::get_internal(GetReply& _return, const GetParams& params)
 {
     if (um_.find(params.key) == um_.end()) {
-        _return.status = KVStatus::ERR_NO_KEY;
+        _return.status = ErrorCode::ERR_NO_KEY;
     } else {
-        _return.status = KVStatus::OK;
+        _return.status = ErrorCode::SUCCEED;
         _return.value = um_[params.key];
     }
 }
