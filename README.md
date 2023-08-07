@@ -6,6 +6,7 @@
 
 1. [课程链接](https://pdos.csail.mit.edu/6.824/schedule.html)，分布式系统官方课程资料
 2. [logcabin](https://github.com/logcabin/logcabin.git)，raft原作者在论文里面提供的raft协议C++实现
+3. [Lab4实现思路](https://github.com/OneSizeFitsQuorum/MIT6.824-2021/blob/master/docs/lab4.md)
 
 ### 实现思路
 

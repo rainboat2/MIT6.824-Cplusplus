@@ -4,10 +4,9 @@
 #include <chrono>
 #include <vector>
 
+#include <common.h>
 #include <rpc/kvraft/KVRaft.h>
 #include <tools/ClientManager.hpp>
-
-constexpr auto KV_PRC_TIMEOUT = std::chrono::milliseconds(1000);
 
 /*
  * A client to invoke KV rpc operation.
