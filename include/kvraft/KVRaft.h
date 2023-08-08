@@ -17,6 +17,7 @@ class KVRaft : virtual public KVRaftIf,
                  virtual public StateMachineIf {
 public:
     KVRaft(std::vector<Host>& peers, Host me, std::string persisterDir, std::function<void()> stopListenPort);
+    ~KVRaft() = default;
 
     /*
      * methods for KVRaftIf

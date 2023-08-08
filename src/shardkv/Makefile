@@ -31,5 +31,4 @@ $(OBJECTS): %.o:
 
 .PHONY: clean
 clean:
-	make -C $(ROOTDIR) clean
-	rm -rf $(LIB_DIR)/libshardkvraft.a
+	rm -rf $(LIB_DIR)/libshardkvraft.a $(OBJECTS)

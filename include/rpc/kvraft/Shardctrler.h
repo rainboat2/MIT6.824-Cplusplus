@@ -4,8 +4,8 @@
  * DO NOT EDIT UNLESS YOU ARE SURE THAT YOU KNOW WHAT YOU ARE DOING
  *  @generated
  */
-#ifndef Shardctrler_H
-#define Shardctrler_H
+#ifndef ShardCtrler_H
+#define ShardCtrler_H
 
 #include <thrift/TDispatchProcessor.h>
 #include <thrift/async/TConcurrentClientSyncInfo.h>
@@ -20,42 +20,42 @@
   #pragma warning (disable : 4250 ) //inheriting methods via dominance 
 #endif
 
-class ShardctrlerIf : virtual public RaftIf {
+class ShardCtrlerIf : virtual public RaftIf {
  public:
-  virtual ~ShardctrlerIf() {}
+  virtual ~ShardCtrlerIf() {}
   virtual void join(JoinReply& _return, const JoinArgs& jargs) = 0;
   virtual void leave(LeaveReply& _return, const LeaveArgs& largs) = 0;
   virtual void move(MoveReply& _return, const MoveArgs& margs) = 0;
   virtual void query(QueryReply& _return, const QueryArgs& qargs) = 0;
 };
 
-class ShardctrlerIfFactory : virtual public RaftIfFactory {
+class ShardCtrlerIfFactory : virtual public RaftIfFactory {
  public:
-  typedef ShardctrlerIf Handler;
+  typedef ShardCtrlerIf Handler;
 
-  virtual ~ShardctrlerIfFactory() {}
+  virtual ~ShardCtrlerIfFactory() {}
 
-  virtual ShardctrlerIf* getHandler(const ::apache::thrift::TConnectionInfo& connInfo) override = 0;
+  virtual ShardCtrlerIf* getHandler(const ::apache::thrift::TConnectionInfo& connInfo) override = 0;
   virtual void releaseHandler(RaftIf* /* handler */) override = 0;
   };
 
-class ShardctrlerIfSingletonFactory : virtual public ShardctrlerIfFactory {
+class ShardCtrlerIfSingletonFactory : virtual public ShardCtrlerIfFactory {
  public:
-  ShardctrlerIfSingletonFactory(const ::std::shared_ptr<ShardctrlerIf>& iface) : iface_(iface) {}
-  virtual ~ShardctrlerIfSingletonFactory() {}
+  ShardCtrlerIfSingletonFactory(const ::std::shared_ptr<ShardCtrlerIf>& iface) : iface_(iface) {}
+  virtual ~ShardCtrlerIfSingletonFactory() {}
 
-  virtual ShardctrlerIf* getHandler(const ::apache::thrift::TConnectionInfo&) override {
+  virtual ShardCtrlerIf* getHandler(const ::apache::thrift::TConnectionInfo&) override {
     return iface_.get();
   }
   virtual void releaseHandler(RaftIf* /* handler */) override {}
 
  protected:
-  ::std::shared_ptr<ShardctrlerIf> iface_;
+  ::std::shared_ptr<ShardCtrlerIf> iface_;
 };
 
-class ShardctrlerNull : virtual public ShardctrlerIf , virtual public RaftNull {
+class ShardCtrlerNull : virtual public ShardCtrlerIf , virtual public RaftNull {
  public:
-  virtual ~ShardctrlerNull() {}
+  virtual ~ShardCtrlerNull() {}
   void join(JoinReply& /* _return */, const JoinArgs& /* jargs */) override {
     return;
   }
@@ -70,37 +70,37 @@ class ShardctrlerNull : virtual public ShardctrlerIf , virtual public RaftNull {
   }
 };
 
-typedef struct _Shardctrler_join_args__isset {
-  _Shardctrler_join_args__isset() : jargs(false) {}
+typedef struct _ShardCtrler_join_args__isset {
+  _ShardCtrler_join_args__isset() : jargs(false) {}
   bool jargs :1;
-} _Shardctrler_join_args__isset;
+} _ShardCtrler_join_args__isset;
 
-class Shardctrler_join_args {
+class ShardCtrler_join_args {
  public:
 
-  Shardctrler_join_args(const Shardctrler_join_args&);
-  Shardctrler_join_args& operator=(const Shardctrler_join_args&);
-  Shardctrler_join_args() noexcept {
+  ShardCtrler_join_args(const ShardCtrler_join_args&);
+  ShardCtrler_join_args& operator=(const ShardCtrler_join_args&);
+  ShardCtrler_join_args() noexcept {
   }
 
-  virtual ~Shardctrler_join_args() noexcept;
+  virtual ~ShardCtrler_join_args() noexcept;
   JoinArgs jargs;
 
-  _Shardctrler_join_args__isset __isset;
+  _ShardCtrler_join_args__isset __isset;
 
   void __set_jargs(const JoinArgs& val);
 
-  bool operator == (const Shardctrler_join_args & rhs) const
+  bool operator == (const ShardCtrler_join_args & rhs) const
   {
     if (!(jargs == rhs.jargs))
       return false;
     return true;
   }
-  bool operator != (const Shardctrler_join_args &rhs) const {
+  bool operator != (const ShardCtrler_join_args &rhs) const {
     return !(*this == rhs);
   }
 
-  bool operator < (const Shardctrler_join_args & ) const;
+  bool operator < (const ShardCtrler_join_args & ) const;
 
   uint32_t read(::apache::thrift::protocol::TProtocol* iprot);
   uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const;
@@ -108,103 +108,103 @@ class Shardctrler_join_args {
 };
 
 
-class Shardctrler_join_pargs {
+class ShardCtrler_join_pargs {
  public:
 
 
-  virtual ~Shardctrler_join_pargs() noexcept;
+  virtual ~ShardCtrler_join_pargs() noexcept;
   const JoinArgs* jargs;
 
   uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const;
 
 };
 
-typedef struct _Shardctrler_join_result__isset {
-  _Shardctrler_join_result__isset() : success(false) {}
+typedef struct _ShardCtrler_join_result__isset {
+  _ShardCtrler_join_result__isset() : success(false) {}
   bool success :1;
-} _Shardctrler_join_result__isset;
+} _ShardCtrler_join_result__isset;
 
-class Shardctrler_join_result {
+class ShardCtrler_join_result {
  public:
 
-  Shardctrler_join_result(const Shardctrler_join_result&) noexcept;
-  Shardctrler_join_result& operator=(const Shardctrler_join_result&) noexcept;
-  Shardctrler_join_result() noexcept {
+  ShardCtrler_join_result(const ShardCtrler_join_result&) noexcept;
+  ShardCtrler_join_result& operator=(const ShardCtrler_join_result&) noexcept;
+  ShardCtrler_join_result() noexcept {
   }
 
-  virtual ~Shardctrler_join_result() noexcept;
+  virtual ~ShardCtrler_join_result() noexcept;
   JoinReply success;
 
-  _Shardctrler_join_result__isset __isset;
+  _ShardCtrler_join_result__isset __isset;
 
   void __set_success(const JoinReply& val);
 
-  bool operator == (const Shardctrler_join_result & rhs) const
+  bool operator == (const ShardCtrler_join_result & rhs) const
   {
     if (!(success == rhs.success))
       return false;
     return true;
   }
-  bool operator != (const Shardctrler_join_result &rhs) const {
+  bool operator != (const ShardCtrler_join_result &rhs) const {
     return !(*this == rhs);
   }
 
-  bool operator < (const Shardctrler_join_result & ) const;
+  bool operator < (const ShardCtrler_join_result & ) const;
 
   uint32_t read(::apache::thrift::protocol::TProtocol* iprot);
   uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const;
 
 };
 
-typedef struct _Shardctrler_join_presult__isset {
-  _Shardctrler_join_presult__isset() : success(false) {}
+typedef struct _ShardCtrler_join_presult__isset {
+  _ShardCtrler_join_presult__isset() : success(false) {}
   bool success :1;
-} _Shardctrler_join_presult__isset;
+} _ShardCtrler_join_presult__isset;
 
-class Shardctrler_join_presult {
+class ShardCtrler_join_presult {
  public:
 
 
-  virtual ~Shardctrler_join_presult() noexcept;
+  virtual ~ShardCtrler_join_presult() noexcept;
   JoinReply* success;
 
-  _Shardctrler_join_presult__isset __isset;
+  _ShardCtrler_join_presult__isset __isset;
 
   uint32_t read(::apache::thrift::protocol::TProtocol* iprot);
 
 };
 
-typedef struct _Shardctrler_leave_args__isset {
-  _Shardctrler_leave_args__isset() : largs(false) {}
+typedef struct _ShardCtrler_leave_args__isset {
+  _ShardCtrler_leave_args__isset() : largs(false) {}
   bool largs :1;
-} _Shardctrler_leave_args__isset;
+} _ShardCtrler_leave_args__isset;
 
-class Shardctrler_leave_args {
+class ShardCtrler_leave_args {
  public:
 
-  Shardctrler_leave_args(const Shardctrler_leave_args&);
-  Shardctrler_leave_args& operator=(const Shardctrler_leave_args&);
-  Shardctrler_leave_args() noexcept {
+  ShardCtrler_leave_args(const ShardCtrler_leave_args&);
+  ShardCtrler_leave_args& operator=(const ShardCtrler_leave_args&);
+  ShardCtrler_leave_args() noexcept {
   }
 
-  virtual ~Shardctrler_leave_args() noexcept;
+  virtual ~ShardCtrler_leave_args() noexcept;
   LeaveArgs largs;
 
-  _Shardctrler_leave_args__isset __isset;
+  _ShardCtrler_leave_args__isset __isset;
 
   void __set_largs(const LeaveArgs& val);
 
-  bool operator == (const Shardctrler_leave_args & rhs) const
+  bool operator == (const ShardCtrler_leave_args & rhs) const
   {
     if (!(largs == rhs.largs))
       return false;
     return true;
   }
-  bool operator != (const Shardctrler_leave_args &rhs) const {
+  bool operator != (const ShardCtrler_leave_args &rhs) const {
     return !(*this == rhs);
   }
 
-  bool operator < (const Shardctrler_leave_args & ) const;
+  bool operator < (const ShardCtrler_leave_args & ) const;
 
   uint32_t read(::apache::thrift::protocol::TProtocol* iprot);
   uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const;
@@ -212,103 +212,103 @@ class Shardctrler_leave_args {
 };
 
 
-class Shardctrler_leave_pargs {
+class ShardCtrler_leave_pargs {
  public:
 
 
-  virtual ~Shardctrler_leave_pargs() noexcept;
+  virtual ~ShardCtrler_leave_pargs() noexcept;
   const LeaveArgs* largs;
 
   uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const;
 
 };
 
-typedef struct _Shardctrler_leave_result__isset {
-  _Shardctrler_leave_result__isset() : success(false) {}
+typedef struct _ShardCtrler_leave_result__isset {
+  _ShardCtrler_leave_result__isset() : success(false) {}
   bool success :1;
-} _Shardctrler_leave_result__isset;
+} _ShardCtrler_leave_result__isset;
 
-class Shardctrler_leave_result {
+class ShardCtrler_leave_result {
  public:
 
-  Shardctrler_leave_result(const Shardctrler_leave_result&) noexcept;
-  Shardctrler_leave_result& operator=(const Shardctrler_leave_result&) noexcept;
-  Shardctrler_leave_result() noexcept {
+  ShardCtrler_leave_result(const ShardCtrler_leave_result&) noexcept;
+  ShardCtrler_leave_result& operator=(const ShardCtrler_leave_result&) noexcept;
+  ShardCtrler_leave_result() noexcept {
   }
 
-  virtual ~Shardctrler_leave_result() noexcept;
+  virtual ~ShardCtrler_leave_result() noexcept;
   LeaveReply success;
 
-  _Shardctrler_leave_result__isset __isset;
+  _ShardCtrler_leave_result__isset __isset;
 
   void __set_success(const LeaveReply& val);
 
-  bool operator == (const Shardctrler_leave_result & rhs) const
+  bool operator == (const ShardCtrler_leave_result & rhs) const
   {
     if (!(success == rhs.success))
       return false;
     return true;
   }
-  bool operator != (const Shardctrler_leave_result &rhs) const {
+  bool operator != (const ShardCtrler_leave_result &rhs) const {
     return !(*this == rhs);
   }
 
-  bool operator < (const Shardctrler_leave_result & ) const;
+  bool operator < (const ShardCtrler_leave_result & ) const;
 
   uint32_t read(::apache::thrift::protocol::TProtocol* iprot);
   uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const;
 
 };
 
-typedef struct _Shardctrler_leave_presult__isset {
-  _Shardctrler_leave_presult__isset() : success(false) {}
+typedef struct _ShardCtrler_leave_presult__isset {
+  _ShardCtrler_leave_presult__isset() : success(false) {}
   bool success :1;
-} _Shardctrler_leave_presult__isset;
+} _ShardCtrler_leave_presult__isset;
 
-class Shardctrler_leave_presult {
+class ShardCtrler_leave_presult {
  public:
 
 
-  virtual ~Shardctrler_leave_presult() noexcept;
+  virtual ~ShardCtrler_leave_presult() noexcept;
   LeaveReply* success;
 
-  _Shardctrler_leave_presult__isset __isset;
+  _ShardCtrler_leave_presult__isset __isset;
 
   uint32_t read(::apache::thrift::protocol::TProtocol* iprot);
 
 };
 
-typedef struct _Shardctrler_move_args__isset {
-  _Shardctrler_move_args__isset() : margs(false) {}
+typedef struct _ShardCtrler_move_args__isset {
+  _ShardCtrler_move_args__isset() : margs(false) {}
   bool margs :1;
-} _Shardctrler_move_args__isset;
+} _ShardCtrler_move_args__isset;
 
-class Shardctrler_move_args {
+class ShardCtrler_move_args {
  public:
 
-  Shardctrler_move_args(const Shardctrler_move_args&) noexcept;
-  Shardctrler_move_args& operator=(const Shardctrler_move_args&) noexcept;
-  Shardctrler_move_args() noexcept {
+  ShardCtrler_move_args(const ShardCtrler_move_args&) noexcept;
+  ShardCtrler_move_args& operator=(const ShardCtrler_move_args&) noexcept;
+  ShardCtrler_move_args() noexcept {
   }
 
-  virtual ~Shardctrler_move_args() noexcept;
+  virtual ~ShardCtrler_move_args() noexcept;
   MoveArgs margs;
 
-  _Shardctrler_move_args__isset __isset;
+  _ShardCtrler_move_args__isset __isset;
 
   void __set_margs(const MoveArgs& val);
 
-  bool operator == (const Shardctrler_move_args & rhs) const
+  bool operator == (const ShardCtrler_move_args & rhs) const
   {
     if (!(margs == rhs.margs))
       return false;
     return true;
   }
-  bool operator != (const Shardctrler_move_args &rhs) const {
+  bool operator != (const ShardCtrler_move_args &rhs) const {
     return !(*this == rhs);
   }
 
-  bool operator < (const Shardctrler_move_args & ) const;
+  bool operator < (const ShardCtrler_move_args & ) const;
 
   uint32_t read(::apache::thrift::protocol::TProtocol* iprot);
   uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const;
@@ -316,103 +316,103 @@ class Shardctrler_move_args {
 };
 
 
-class Shardctrler_move_pargs {
+class ShardCtrler_move_pargs {
  public:
 
 
-  virtual ~Shardctrler_move_pargs() noexcept;
+  virtual ~ShardCtrler_move_pargs() noexcept;
   const MoveArgs* margs;
 
   uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const;
 
 };
 
-typedef struct _Shardctrler_move_result__isset {
-  _Shardctrler_move_result__isset() : success(false) {}
+typedef struct _ShardCtrler_move_result__isset {
+  _ShardCtrler_move_result__isset() : success(false) {}
   bool success :1;
-} _Shardctrler_move_result__isset;
+} _ShardCtrler_move_result__isset;
 
-class Shardctrler_move_result {
+class ShardCtrler_move_result {
  public:
 
-  Shardctrler_move_result(const Shardctrler_move_result&) noexcept;
-  Shardctrler_move_result& operator=(const Shardctrler_move_result&) noexcept;
-  Shardctrler_move_result() noexcept {
+  ShardCtrler_move_result(const ShardCtrler_move_result&) noexcept;
+  ShardCtrler_move_result& operator=(const ShardCtrler_move_result&) noexcept;
+  ShardCtrler_move_result() noexcept {
   }
 
-  virtual ~Shardctrler_move_result() noexcept;
+  virtual ~ShardCtrler_move_result() noexcept;
   MoveReply success;
 
-  _Shardctrler_move_result__isset __isset;
+  _ShardCtrler_move_result__isset __isset;
 
   void __set_success(const MoveReply& val);
 
-  bool operator == (const Shardctrler_move_result & rhs) const
+  bool operator == (const ShardCtrler_move_result & rhs) const
   {
     if (!(success == rhs.success))
       return false;
     return true;
   }
-  bool operator != (const Shardctrler_move_result &rhs) const {
+  bool operator != (const ShardCtrler_move_result &rhs) const {
     return !(*this == rhs);
   }
 
-  bool operator < (const Shardctrler_move_result & ) const;
+  bool operator < (const ShardCtrler_move_result & ) const;
 
   uint32_t read(::apache::thrift::protocol::TProtocol* iprot);
   uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const;
 
 };
 
-typedef struct _Shardctrler_move_presult__isset {
-  _Shardctrler_move_presult__isset() : success(false) {}
+typedef struct _ShardCtrler_move_presult__isset {
+  _ShardCtrler_move_presult__isset() : success(false) {}
   bool success :1;
-} _Shardctrler_move_presult__isset;
+} _ShardCtrler_move_presult__isset;
 
-class Shardctrler_move_presult {
+class ShardCtrler_move_presult {
  public:
 
 
-  virtual ~Shardctrler_move_presult() noexcept;
+  virtual ~ShardCtrler_move_presult() noexcept;
   MoveReply* success;
 
-  _Shardctrler_move_presult__isset __isset;
+  _ShardCtrler_move_presult__isset __isset;
 
   uint32_t read(::apache::thrift::protocol::TProtocol* iprot);
 
 };
 
-typedef struct _Shardctrler_query_args__isset {
-  _Shardctrler_query_args__isset() : qargs(false) {}
+typedef struct _ShardCtrler_query_args__isset {
+  _ShardCtrler_query_args__isset() : qargs(false) {}
   bool qargs :1;
-} _Shardctrler_query_args__isset;
+} _ShardCtrler_query_args__isset;
 
-class Shardctrler_query_args {
+class ShardCtrler_query_args {
  public:
 
-  Shardctrler_query_args(const Shardctrler_query_args&) noexcept;
-  Shardctrler_query_args& operator=(const Shardctrler_query_args&) noexcept;
-  Shardctrler_query_args() noexcept {
+  ShardCtrler_query_args(const ShardCtrler_query_args&) noexcept;
+  ShardCtrler_query_args& operator=(const ShardCtrler_query_args&) noexcept;
+  ShardCtrler_query_args() noexcept {
   }
 
-  virtual ~Shardctrler_query_args() noexcept;
+  virtual ~ShardCtrler_query_args() noexcept;
   QueryArgs qargs;
 
-  _Shardctrler_query_args__isset __isset;
+  _ShardCtrler_query_args__isset __isset;
 
   void __set_qargs(const QueryArgs& val);
 
-  bool operator == (const Shardctrler_query_args & rhs) const
+  bool operator == (const ShardCtrler_query_args & rhs) const
   {
     if (!(qargs == rhs.qargs))
       return false;
     return true;
   }
-  bool operator != (const Shardctrler_query_args &rhs) const {
+  bool operator != (const ShardCtrler_query_args &rhs) const {
     return !(*this == rhs);
   }
 
-  bool operator < (const Shardctrler_query_args & ) const;
+  bool operator < (const ShardCtrler_query_args & ) const;
 
   uint32_t read(::apache::thrift::protocol::TProtocol* iprot);
   uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const;
@@ -420,77 +420,77 @@ class Shardctrler_query_args {
 };
 
 
-class Shardctrler_query_pargs {
+class ShardCtrler_query_pargs {
  public:
 
 
-  virtual ~Shardctrler_query_pargs() noexcept;
+  virtual ~ShardCtrler_query_pargs() noexcept;
   const QueryArgs* qargs;
 
   uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const;
 
 };
 
-typedef struct _Shardctrler_query_result__isset {
-  _Shardctrler_query_result__isset() : success(false) {}
+typedef struct _ShardCtrler_query_result__isset {
+  _ShardCtrler_query_result__isset() : success(false) {}
   bool success :1;
-} _Shardctrler_query_result__isset;
+} _ShardCtrler_query_result__isset;
 
-class Shardctrler_query_result {
+class ShardCtrler_query_result {
  public:
 
-  Shardctrler_query_result(const Shardctrler_query_result&);
-  Shardctrler_query_result& operator=(const Shardctrler_query_result&);
-  Shardctrler_query_result() noexcept {
+  ShardCtrler_query_result(const ShardCtrler_query_result&);
+  ShardCtrler_query_result& operator=(const ShardCtrler_query_result&);
+  ShardCtrler_query_result() noexcept {
   }
 
-  virtual ~Shardctrler_query_result() noexcept;
+  virtual ~ShardCtrler_query_result() noexcept;
   QueryReply success;
 
-  _Shardctrler_query_result__isset __isset;
+  _ShardCtrler_query_result__isset __isset;
 
   void __set_success(const QueryReply& val);
 
-  bool operator == (const Shardctrler_query_result & rhs) const
+  bool operator == (const ShardCtrler_query_result & rhs) const
   {
     if (!(success == rhs.success))
       return false;
     return true;
   }
-  bool operator != (const Shardctrler_query_result &rhs) const {
+  bool operator != (const ShardCtrler_query_result &rhs) const {
     return !(*this == rhs);
   }
 
-  bool operator < (const Shardctrler_query_result & ) const;
+  bool operator < (const ShardCtrler_query_result & ) const;
 
   uint32_t read(::apache::thrift::protocol::TProtocol* iprot);
   uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const;
 
 };
 
-typedef struct _Shardctrler_query_presult__isset {
-  _Shardctrler_query_presult__isset() : success(false) {}
+typedef struct _ShardCtrler_query_presult__isset {
+  _ShardCtrler_query_presult__isset() : success(false) {}
   bool success :1;
-} _Shardctrler_query_presult__isset;
+} _ShardCtrler_query_presult__isset;
 
-class Shardctrler_query_presult {
+class ShardCtrler_query_presult {
  public:
 
 
-  virtual ~Shardctrler_query_presult() noexcept;
+  virtual ~ShardCtrler_query_presult() noexcept;
   QueryReply* success;
 
-  _Shardctrler_query_presult__isset __isset;
+  _ShardCtrler_query_presult__isset __isset;
 
   uint32_t read(::apache::thrift::protocol::TProtocol* iprot);
 
 };
 
-class ShardctrlerClient : virtual public ShardctrlerIf, public RaftClient {
+class ShardCtrlerClient : virtual public ShardCtrlerIf, public RaftClient {
  public:
-  ShardctrlerClient(std::shared_ptr< ::apache::thrift::protocol::TProtocol> prot) :
+  ShardCtrlerClient(std::shared_ptr< ::apache::thrift::protocol::TProtocol> prot) :
     RaftClient(prot, prot) {}
-  ShardctrlerClient(std::shared_ptr< ::apache::thrift::protocol::TProtocol> iprot, std::shared_ptr< ::apache::thrift::protocol::TProtocol> oprot) :    RaftClient(iprot, oprot) {}
+  ShardCtrlerClient(std::shared_ptr< ::apache::thrift::protocol::TProtocol> iprot, std::shared_ptr< ::apache::thrift::protocol::TProtocol> oprot) :    RaftClient(iprot, oprot) {}
   std::shared_ptr< ::apache::thrift::protocol::TProtocol> getInputProtocol() {
     return piprot_;
   }
@@ -511,12 +511,12 @@ class ShardctrlerClient : virtual public ShardctrlerIf, public RaftClient {
   void recv_query(QueryReply& _return);
 };
 
-class ShardctrlerProcessor : public RaftProcessor {
+class ShardCtrlerProcessor : public RaftProcessor {
  protected:
-  ::std::shared_ptr<ShardctrlerIf> iface_;
+  ::std::shared_ptr<ShardCtrlerIf> iface_;
   virtual bool dispatchCall(::apache::thrift::protocol::TProtocol* iprot, ::apache::thrift::protocol::TProtocol* oprot, const std::string& fname, int32_t seqid, void* callContext) override;
  private:
-  typedef  void (ShardctrlerProcessor::*ProcessFunction)(int32_t, ::apache::thrift::protocol::TProtocol*, ::apache::thrift::protocol::TProtocol*, void*);
+  typedef  void (ShardCtrlerProcessor::*ProcessFunction)(int32_t, ::apache::thrift::protocol::TProtocol*, ::apache::thrift::protocol::TProtocol*, void*);
   typedef std::map<std::string, ProcessFunction> ProcessMap;
   ProcessMap processMap_;
   void process_join(int32_t seqid, ::apache::thrift::protocol::TProtocol* iprot, ::apache::thrift::protocol::TProtocol* oprot, void* callContext);
@@ -524,42 +524,42 @@ class ShardctrlerProcessor : public RaftProcessor {
   void process_move(int32_t seqid, ::apache::thrift::protocol::TProtocol* iprot, ::apache::thrift::protocol::TProtocol* oprot, void* callContext);
   void process_query(int32_t seqid, ::apache::thrift::protocol::TProtocol* iprot, ::apache::thrift::protocol::TProtocol* oprot, void* callContext);
  public:
-  ShardctrlerProcessor(::std::shared_ptr<ShardctrlerIf> iface) :
+  ShardCtrlerProcessor(::std::shared_ptr<ShardCtrlerIf> iface) :
     RaftProcessor(iface),
     iface_(iface) {
-    processMap_["join"] = &ShardctrlerProcessor::process_join;
-    processMap_["leave"] = &ShardctrlerProcessor::process_leave;
-    processMap_["move"] = &ShardctrlerProcessor::process_move;
-    processMap_["query"] = &ShardctrlerProcessor::process_query;
+    processMap_["join"] = &ShardCtrlerProcessor::process_join;
+    processMap_["leave"] = &ShardCtrlerProcessor::process_leave;
+    processMap_["move"] = &ShardCtrlerProcessor::process_move;
+    processMap_["query"] = &ShardCtrlerProcessor::process_query;
   }
 
-  virtual ~ShardctrlerProcessor() {}
+  virtual ~ShardCtrlerProcessor() {}
 };
 
-class ShardctrlerProcessorFactory : public ::apache::thrift::TProcessorFactory {
+class ShardCtrlerProcessorFactory : public ::apache::thrift::TProcessorFactory {
  public:
-  ShardctrlerProcessorFactory(const ::std::shared_ptr< ShardctrlerIfFactory >& handlerFactory) noexcept :
+  ShardCtrlerProcessorFactory(const ::std::shared_ptr< ShardCtrlerIfFactory >& handlerFactory) noexcept :
       handlerFactory_(handlerFactory) {}
 
   ::std::shared_ptr< ::apache::thrift::TProcessor > getProcessor(const ::apache::thrift::TConnectionInfo& connInfo) override;
 
  protected:
-  ::std::shared_ptr< ShardctrlerIfFactory > handlerFactory_;
+  ::std::shared_ptr< ShardCtrlerIfFactory > handlerFactory_;
 };
 
-class ShardctrlerMultiface : virtual public ShardctrlerIf, public RaftMultiface {
+class ShardCtrlerMultiface : virtual public ShardCtrlerIf, public RaftMultiface {
  public:
-  ShardctrlerMultiface(std::vector<std::shared_ptr<ShardctrlerIf> >& ifaces) : ifaces_(ifaces) {
-    std::vector<std::shared_ptr<ShardctrlerIf> >::iterator iter;
+  ShardCtrlerMultiface(std::vector<std::shared_ptr<ShardCtrlerIf> >& ifaces) : ifaces_(ifaces) {
+    std::vector<std::shared_ptr<ShardCtrlerIf> >::iterator iter;
     for (iter = ifaces.begin(); iter != ifaces.end(); ++iter) {
       RaftMultiface::add(*iter);
     }
   }
-  virtual ~ShardctrlerMultiface() {}
+  virtual ~ShardCtrlerMultiface() {}
  protected:
-  std::vector<std::shared_ptr<ShardctrlerIf> > ifaces_;
-  ShardctrlerMultiface() {}
-  void add(::std::shared_ptr<ShardctrlerIf> iface) {
+  std::vector<std::shared_ptr<ShardCtrlerIf> > ifaces_;
+  ShardCtrlerMultiface() {}
+  void add(::std::shared_ptr<ShardCtrlerIf> iface) {
     RaftMultiface::add(iface);
     ifaces_.push_back(iface);
   }
@@ -609,11 +609,11 @@ class ShardctrlerMultiface : virtual public ShardctrlerIf, public RaftMultiface 
 // The 'concurrent' client is a thread safe client that correctly handles
 // out of order responses.  It is slower than the regular client, so should
 // only be used when you need to share a connection among multiple threads
-class ShardctrlerConcurrentClient : virtual public ShardctrlerIf, public RaftConcurrentClient {
+class ShardCtrlerConcurrentClient : virtual public ShardCtrlerIf, public RaftConcurrentClient {
  public:
-  ShardctrlerConcurrentClient(std::shared_ptr< ::apache::thrift::protocol::TProtocol> prot, std::shared_ptr< ::apache::thrift::async::TConcurrentClientSyncInfo> sync) :
+  ShardCtrlerConcurrentClient(std::shared_ptr< ::apache::thrift::protocol::TProtocol> prot, std::shared_ptr< ::apache::thrift::async::TConcurrentClientSyncInfo> sync) :
     RaftConcurrentClient(prot, prot, sync) {}
-  ShardctrlerConcurrentClient(std::shared_ptr< ::apache::thrift::protocol::TProtocol> iprot, std::shared_ptr< ::apache::thrift::protocol::TProtocol> oprot, std::shared_ptr< ::apache::thrift::async::TConcurrentClientSyncInfo> sync) :    RaftConcurrentClient(iprot, oprot, sync) {}
+  ShardCtrlerConcurrentClient(std::shared_ptr< ::apache::thrift::protocol::TProtocol> iprot, std::shared_ptr< ::apache::thrift::protocol::TProtocol> oprot, std::shared_ptr< ::apache::thrift::async::TConcurrentClientSyncInfo> sync) :    RaftConcurrentClient(iprot, oprot, sync) {}
   std::shared_ptr< ::apache::thrift::protocol::TProtocol> getInputProtocol() {
     return piprot_;
   }

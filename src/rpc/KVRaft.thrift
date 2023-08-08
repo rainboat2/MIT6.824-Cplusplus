@@ -10,6 +10,7 @@ struct Host {
 
 enum ErrorCode {
     SUCCEED = 0,
+    ERR_REQUEST_FAILD,
     ERR_NO_KEY,
     ERR_WRONG_LEADER,
     ERR_NO_SUCH_SHARD_CONFIG
@@ -152,7 +153,7 @@ struct QueryArgs {
 struct Config {
     1: i32 configNum;
     2: list<GID> shard2gid;
-    3: map<GID, set<ShardId>> gid2shards_;
+    3: map<GID, set<ShardId>> gid2shards;
 }
 
 struct QueryReply {
@@ -189,7 +190,7 @@ service KVRaft extends Raft{
     GetReply get(1: GetParams params);
 }
 
-service Shardctrler extends Raft {
+service ShardCtrler extends Raft {
     JoinReply join(1: JoinArgs jargs);
 
     LeaveReply leave(1: LeaveArgs largs);

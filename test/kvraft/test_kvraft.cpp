@@ -13,6 +13,7 @@
 
 #include <kvraft/KVClerk.h>
 #include <kvraft/KVRaft.h>
+#include <raft/RaftConfig.h>
 #include <rpc/kvraft/KVRaft.h>
 #include <tools/ClientManager.hpp>
 #include <tools/Timer.hpp>

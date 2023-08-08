@@ -17,6 +17,7 @@
 
 #include "RaftProcess.hpp"
 
+#include <raft/RaftConfig.h>
 #include <raft/StateMachine.h>
 #include <tools/ClientManager.hpp>
 
@@ -40,7 +41,7 @@ class RaftTest : public testing::Test {
 protected:
     void SetUp() override
     {
-        logDir_ = fmt::format("/Users/rain/vscodeProjects/MIT6.824/logs/{}", testing::UnitTest::GetInstance()->current_test_info()->name());
+        logDir_ = fmt::format("../../logs/{}", testing::UnitTest::GetInstance()->current_test_info()->name());
         mkdir(logDir_.c_str(), S_IRWXU);
         ports_ = { 7001, 7002, 7003, 7004, 7005, 7006, 7007, 7008 };
         cm_ = ClientManager<RaftClient>(ports_.size(), RPC_TIMEOUT);

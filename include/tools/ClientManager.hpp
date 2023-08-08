@@ -6,6 +6,7 @@
 
 #include <rpc/kvraft/KVRaft_types.h>
 
+#include <glog/logging.h>
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <thrift/transport/TSocket.h>
 #include <thrift/transport/TTransportUtils.h>
@@ -27,6 +28,8 @@ public:
         using namespace ::apache::thrift::protocol;
         using namespace ::apache::thrift::transport;
 
+        // LOG_IF(FATAL, i < 0 || i >= clients_.size()) << "Index out of bound! i = "
+        //                                              << i << ", client size: " << clients_.size();
         if (clients_[i] == nullptr) {
             auto sk = new TSocket(addr.ip, addr.port);
             sk->setConnTimeout(timeout_.count());

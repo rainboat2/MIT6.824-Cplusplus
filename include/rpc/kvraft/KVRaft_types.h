@@ -24,9 +24,10 @@
 struct ErrorCode {
   enum type {
     SUCCEED = 0,
-    ERR_NO_KEY = 1,
-    ERR_WRONG_LEADER = 2,
-    ERR_NO_SUCH_SHARD_CONFIG = 3
+    ERR_REQUEST_FAILD = 1,
+    ERR_NO_KEY = 2,
+    ERR_WRONG_LEADER = 3,
+    ERR_NO_SUCH_SHARD_CONFIG = 4
   };
 };
 
@@ -1291,10 +1292,10 @@ void swap(QueryArgs &a, QueryArgs &b);
 std::ostream& operator<<(std::ostream& out, const QueryArgs& obj);
 
 typedef struct _Config__isset {
-  _Config__isset() : configNum(false), shard2gid(false), gid2shards_(false) {}
+  _Config__isset() : configNum(false), shard2gid(false), gid2shards(false) {}
   bool configNum :1;
   bool shard2gid :1;
-  bool gid2shards_ :1;
+  bool gid2shards :1;
 } _Config__isset;
 
 class Config : public virtual ::apache::thrift::TBase {
@@ -1309,7 +1310,7 @@ class Config : public virtual ::apache::thrift::TBase {
   virtual ~Config() noexcept;
   int32_t configNum;
   std::vector<GID>  shard2gid;
-  std::map<GID, std::set<ShardId> >  gid2shards_;
+  std::map<GID, std::set<ShardId> >  gid2shards;
 
   _Config__isset __isset;
 
@@ -1317,7 +1318,7 @@ class Config : public virtual ::apache::thrift::TBase {
 
   void __set_shard2gid(const std::vector<GID> & val);
 
-  void __set_gid2shards_(const std::map<GID, std::set<ShardId> > & val);
+  void __set_gid2shards(const std::map<GID, std::set<ShardId> > & val);
 
   bool operator == (const Config & rhs) const
   {
@@ -1325,7 +1326,7 @@ class Config : public virtual ::apache::thrift::TBase {
       return false;
     if (!(shard2gid == rhs.shard2gid))
       return false;
-    if (!(gid2shards_ == rhs.gid2shards_))
+    if (!(gid2shards == rhs.gid2shards))
       return false;
     return true;
   }

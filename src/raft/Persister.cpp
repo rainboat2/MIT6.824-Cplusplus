@@ -12,10 +12,11 @@
 #include <glog/logging.h>
 
 #include <raft/Persister.h>
-#include <raft/raft.h>
+#include <raft/RaftConfig.h>
 #include <rpc/kvraft/KVRaft_types.h>
 #include <rpc/kvraft/Raft.h>
 #include <tools/Timer.hpp>
+#include <tools/ToString.hpp>
 
 static std::ostream& operator<<(std::ostream& out, std::deque<LogEntry>& logs);
 static std::ostream& operator<<(std::ostream& ost, const Metadata& md);
@@ -170,7 +171,8 @@ int Persister::loadChunks()
         }
     }
     sort(chunkNames_.begin(), chunkNames_.end());
-    LOG(INFO) << "Load chunks: " << std::vector<std::string>(chunkNames_.begin(), chunkNames_.end());
+    auto names =  std::vector<std::string>(chunkNames_.begin(), chunkNames_.end());
+    LOG(INFO) << "Load chunks: " << fmt::format("{}", fmt::join(names, ", "));
     return chunkNames_.size();
 }
 
@@ -250,9 +252,9 @@ std::vector<std::string> Persister::filesIn(std::string& dir)
     if (dirp == nullptr) {
         if (errno == ENOENT) {
             mkdir(dir.c_str(), S_IRWXU);
-            LOG(INFO) << "Open log directory failed: " << strerror(errno) << ", create it!";
+            LOG(INFO) << fmt::format("Open {} failed: {}, create it!", dir, strerror(errno));
         } else {
-            LOG(FATAL) << "Open log directory failed: " << strerror(errno);
+            LOG(FATAL) << fmt::format("Open {} failed: {}", dir, strerror(errno));
         }
         return {};
     }

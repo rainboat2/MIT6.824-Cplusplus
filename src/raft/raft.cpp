@@ -21,6 +21,7 @@
 #include <thrift/transport/TBufferTransports.h>
 #include <thrift/transport/TServerSocket.h>
 
+#include <raft/RaftConfig.h>
 #include <raft/raft.h>
 #include <tools/ClientManager.hpp>
 #include <tools/Timer.hpp>
@@ -437,10 +438,12 @@ bool RaftHandler::async_sendLogsTo(int peerIndex, Host host, AppendEntriesParams
             LogId matchId = params.prevLogIndex + params.entries.size();
             handleReplicateResultFor(peerIndex, params.prevLogIndex, matchId, rs.success);
         }
-        LOG(INFO) << fmt::format("Send {} logs to {}", params.entries.size(), to_string(host))
-                  << fmt::format(", params: (prevLogIndex={}, prevLogTerm={}, commit={})",
-                         params.prevLogIndex, params.prevLogTerm, params.leaderCommit)
-                  << fmt::format(", the result: (success: {}, term: {})", rs.success, rs.term);
+
+        bool isHb = params.entries.empty(); // is heart beat;
+        LOG_IF(INFO, !isHb) << fmt::format("Send {} logs to {}", params.entries.size(), to_string(host))
+                            << fmt::format(", params: (prevLogIndex={}, prevLogTerm={}, commit={})",
+                                   params.prevLogIndex, params.prevLogTerm, params.leaderCommit)
+                            << fmt::format(", the result: (success: {}, term: {})", rs.success, rs.term);
     } catch (TException& tx) {
         cm.setInvalid(peerIndex);
         LOG(INFO) << fmt::format("Send logs to {} failed: {}", to_string(host), tx.what());
@@ -513,7 +516,7 @@ void RaftHandler::async_checkLeaderStatus() noexcept
                  * Leader does not need to check the status of leader,
                  * exit this thread
                  */
-                LOG(INFO) << "Raft become a leader, exit the checkLeaderStatus thread!";
+                LOG(INFO) << "Raft become the leader, exit the checkLeaderStatus thread!";
                 return;
             default:
                 LOG(FATAL) << "Unexpected state!";

@@ -9,6 +9,7 @@
 #include <rpc/mapreduce/MapReduce_types.h>
 
 #include <fmt/format.h>
+#include <fmt/ranges.h>
 
 inline std::string to_string(const Host& addr)
 {
@@ -23,16 +24,9 @@ inline std::string logsRange(const std::deque<LogEntry>& logs)
         return "[-1, -1]";
 }
 
-inline std::ostream& operator<<(std::ostream& out, const std::vector<std::string>& v)
+inline std::string to_string(const Config& config)
 {
-    out << '[';
-    for (int i = 0; i < v.size(); i++) {
-        if (i != 0)
-            out << ',';
-        out << v[i];
-    }
-    out << ']';
-    return out;
+    return fmt::format("(configNum = {}, shard2gid = {}, gid2shards = {})", config.configNum, config.shard2gid, config.gid2shards);
 }
 
 // inline std::ostream& operator<<(std::ostream& out, const TaskResponse& res)

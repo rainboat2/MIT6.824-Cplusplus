@@ -4,7 +4,7 @@
 #include <vector>
 
 #include <rpc/kvraft/KVRaft_types.h>
-#include <rpc/kvraft/Shardctrler.h>
+#include <rpc/kvraft/ShardCtrler.h>
 #include <tools/ClientManager.hpp>
 
 class ShardctrlerClerk {
@@ -21,7 +21,7 @@ public:
 
 private:
     std::vector<Host> hosts_;
-    ClientManager<ShardctrlerClient> cm_;
+    ClientManager<ShardCtrlerClient> cm_;
     int leaderId_;
 };
 
