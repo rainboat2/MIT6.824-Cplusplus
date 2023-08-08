@@ -16,7 +16,7 @@ inline std::vector<Host> getPeerAddress(Host& me)
 {
     auto extractAddr = [](std::string& host) {
         LOG(INFO) << host;
-        int k = 0;
+        uint k = 0;
         while (k < host.size() && host[k] != ':')
             k++;
         if (k == host.size())
@@ -29,7 +29,7 @@ inline std::vector<Host> getPeerAddress(Host& me)
 
     std::vector<Host> rs;
     std::string peers = FLAGS_peers;
-    int i = 0, j = 0;
+    uint i = 0, j = 0;
     while (i < peers.size()) {
         while (j < peers.size() && peers[j] != ',') {
             j++;

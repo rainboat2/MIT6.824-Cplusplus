@@ -51,16 +51,16 @@ protected:
     {
     }
 
-    void initKVRafts(int num)
+    void initKVRafts(const uint num)
     {
         EXPECT_GE(ports_.size(), num);
         hosts_ = vector<Host>(num);
-        for (int i = 0; i < num; i++) {
+        for (uint i = 0; i < num; i++) {
             hosts_[i].ip = "127.0.0.1";
             hosts_[i].port = ports_[i];
         }
 
-        for (int i = 0; i < num; i++) {
+        for (uint i = 0; i < num; i++) {
             vector<Host> peers = hosts_;
             Host me = hosts_[i];
             peers.erase(peers.begin() + i);
@@ -69,7 +69,7 @@ protected:
             mkdir(dirName.c_str(), S_IRWXU);
         }
 
-        for (int i = 0; i < num; i++) {
+        for (uint i = 0; i < num; i++) {
             kvrafts_[i].start();
         }
         /*
@@ -84,7 +84,7 @@ protected:
         vector<int> leaders;
         while (retry-- > 0) {
             leaders.clear();
-            for (int i = 0; i < kvrafts_.size(); i++) {
+            for (uint i = 0; i < kvrafts_.size(); i++) {
                 auto st = getState(i);
                 if (st == INVALID_RAFTSTATE)
                     continue;
@@ -110,11 +110,11 @@ protected:
         return leaders.front();
     }
 
-    KVClerk buildKVClerk(int num)
+    KVClerk buildKVClerk(const uint num)
     {
         EXPECT_LE(num, ports_.size());
         vector<Host> hosts(num);
-        for (int i = 0; i < num; i++)
+        for (uint i = 0; i < num; i++)
             hosts[i] = hosts_[i];
         return KVClerk(hosts);
     }
@@ -145,7 +145,7 @@ protected:
 
 TEST_F(KVRaftTest, TestBasic3A)
 {
-    const int KV_NUM = 3;
+    const uint KV_NUM = 3;
     initKVRafts(KV_NUM);
     auto clerk = buildKVClerk(KV_NUM);
 
@@ -176,7 +176,7 @@ TEST_F(KVRaftTest, TestBasic3A)
 
 TEST_F(KVRaftTest, TestSpeed3A)
 {
-    const int KV_NUM = 3;
+    const uint KV_NUM = 3;
     const int CMD_NUM = 500;
     initKVRafts(KV_NUM);
     auto clerk = buildKVClerk(KV_NUM);
@@ -197,14 +197,14 @@ TEST_F(KVRaftTest, TestSpeed3A)
 
 TEST_F(KVRaftTest, TestConcurrent3A)
 {
-    const int KV_NUM = 3, CLERK_NUM = 5;
+    const uint KV_NUM = 3, CLERK_NUM = 5;
     initKVRafts(KV_NUM);
     vector<KVClerk> clerks;
-    for (int i = 0; i < CLERK_NUM; i++)
+    for (uint i = 0; i < CLERK_NUM; i++)
         clerks.push_back(buildKVClerk(KV_NUM));
 
     vector<thread> threads(CLERK_NUM);
-    for (int i = 0; i < threads.size(); i++) {
+    for (uint i = 0; i < threads.size(); i++) {
         threads[i] = thread([i, &clerks]() {
             auto& clerk = clerks[i];
             PutAppendParams put_p;
@@ -228,21 +228,21 @@ TEST_F(KVRaftTest, TestConcurrent3A)
         });
     }
 
-    for (int i = 0; i < threads.size(); i++) {
+    for (uint i = 0; i < threads.size(); i++) {
         threads[i].join();
     }
 }
 
 TEST_F(KVRaftTest, TestUnreliable3A)
 {
-    const int KV_NUM = 3;
+    const uint KV_NUM = 3;
     initKVRafts(KV_NUM);
     auto clerk = buildKVClerk(KV_NUM);
 
     PutAppendParams put_p;
     PutAppendReply put_r;
     string prefix = "kvraft";
-    for (int i = 0; i < 10; i++) {
+    for (uint i = 0; i < 10; i++) {
         put_p.key = prefix + std::to_string(i);
         put_p.value = prefix + std::to_string(i);
         clerk.putAppend(put_r, put_p);
@@ -257,7 +257,7 @@ TEST_F(KVRaftTest, TestUnreliable3A)
 
     GetParams get_p;
     GetReply get_r;
-    for (int i = 0; i < 10; i++) {
+    for (uint i = 0; i < 10; i++) {
         get_p.key = prefix + std::to_string(i);
         clerk.get(get_r, get_p);
         EXPECT_EQ(get_r.status, ErrorCode::SUCCEED);
@@ -275,21 +275,21 @@ TEST_F(KVRaftTest, TestUnreliable3A)
 
 TEST_F(KVRaftTest, TestSnapshotBasic3B)
 {
-    const int KV_NUM = 3;
+    const uint KV_NUM = 3;
     initKVRafts(KV_NUM);
     auto clerk = buildKVClerk(KV_NUM);
 
     PutAppendParams put_p;
     PutAppendReply put_r;
     string prefix = "kvraft";
-    for (int i = 0; i < MAX_LOGS_BEFORE_SNAPSHOT * 1.5; i++) {
+    for (uint i = 0; i < MAX_LOGS_BEFORE_SNAPSHOT * 1.5; i++) {
         put_p.key = prefix + std::to_string(i);
         put_p.value = prefix + std::to_string(i);
         clerk.putAppend(put_r, put_p);
         EXPECT_EQ(put_r.status, ErrorCode::SUCCEED);
     }
 
-    for (int i = 0; i < KV_NUM; i++) {
+    for (uint i = 0; i < KV_NUM; i++) {
         string name = fmt::format("{}/kvraft{}", logDir_, i + 1);
         access(name.c_str(), F_OK);
     }

@@ -21,7 +21,7 @@ void KVClerk::putAppend(PutAppendReply& _return, const PutAppendParams& params)
     }
 
     if (leaderId_ == -1) {
-        for (int i = 0; i < hosts_.size(); i++) {
+        for (uint i = 0; i < hosts_.size(); i++) {
             putAppendTo(i, _return, params);
             if (_return.status != ErrorCode::ERR_WRONG_LEADER) {
                 leaderId_ = i;
@@ -44,7 +44,7 @@ void KVClerk::get(GetReply& _return, const GetParams& params)
     }
 
     if (leaderId_ == -1) {
-        for (int i = 0; i < hosts_.size(); i++) {
+        for (uint i = 0; i < hosts_.size(); i++) {
             getTo(i, _return, params);
             if (_return.status != ErrorCode::ERR_WRONG_LEADER) {
                 leaderId_ = i;

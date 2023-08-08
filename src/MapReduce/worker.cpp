@@ -121,7 +121,7 @@ private:
 
         vector<string> files(res.resultNum);
         string prefix = fmt::format("mr-wid{}-tid{}", id_, res.id);
-        for (int i = 0; i < files.size(); i++)
+        for (uint i = 0; i < files.size(); i++)
             files[i] = prefix + "_rid" + std::to_string(i);
         divideResultsToFile(rs, files);
         return files;
@@ -133,7 +133,7 @@ private:
 
         vector<KeyValue> keyvals;
         string key, val;
-        for (int i = 0; i < files.size(); i++) {
+        for (uint i = 0; i < files.size(); i++) {
             std::ifstream ifs(files[i]);
             while (ifs >> key >> val) {
                 keyvals.push_back({ key, val });
@@ -163,7 +163,7 @@ private:
         string preKey = kvs[0].key;
         vector<string> vals;
         vector<KeyValue> ans;
-        for (int i = 0; i < kvs.size(); i++) {
+        for (uint i = 0; i < kvs.size(); i++) {
             if (preKey != kvs[i].key) {
                 vector<string> rs = reducef_(preKey, vals);
                 if (!rs.empty()) {
@@ -185,13 +185,13 @@ private:
 
     void divideResultsToFile(vector<KeyValue>& rs, vector<string>& resultFiles)
     {
-        const int N = resultFiles.size();
+        const uint N = resultFiles.size();
         vector<std::ofstream> files(N);
-        for (int i = 0; i < N; i++) {
+        for (uint i = 0; i < N; i++) {
             files[i] = std::ofstream(resultFiles[i]);
         }
 
-        for (int i = 0; i < rs.size(); i++) {
+        for (uint i = 0; i < rs.size(); i++) {
             int h = std::hash<string> {}(rs[i].key) % N;
             files[h] << rs[i].key << '\t' << rs[i].val << '\n';
         }

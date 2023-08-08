@@ -49,16 +49,16 @@ protected:
         GlobalOutput.setOutputFunction(outputErrmsg);
     }
 
-    void initRafts(int num)
+    void initRafts(const uint num)
     {
         EXPECT_GE(ports_.size(), num);
         hosts_ = vector<Host>(num);
-        for (int i = 0; i < hosts_.size(); i++) {
+        for (uint i = 0; i < hosts_.size(); i++) {
             hosts_[i].ip = "127.0.0.1";
             hosts_[i].port = ports_[i];
         }
 
-        for (int i = 0; i < num; i++) {
+        for (uint i = 0; i < num; i++) {
             vector<Host> peers = hosts_;
             Host me = hosts_[i];
             peers.erase(peers.begin() + i);
@@ -67,7 +67,7 @@ protected:
             mkdir(dirName.c_str(), S_IRWXU);
         }
 
-        for (int i = 0; i < num; i++) {
+        for (uint i = 0; i < num; i++) {
             rafts_[i].start();
         }
         /*
@@ -82,7 +82,7 @@ protected:
         vector<int> leaders;
         while (retry-- > 0) {
             leaders.clear();
-            for (int i = 0; i < rafts_.size(); i++) {
+            for (uint i = 0; i < rafts_.size(); i++) {
                 auto st = getState(i);
                 if (st == INVALID_RAFTSTATE)
                     continue;
@@ -137,7 +137,7 @@ protected:
     int nCommitted(int index, string& cmd)
     {
         int nc = 0;
-        for (int i = 0; i < rafts_.size(); i++) {
+        for (uint i = 0; i < rafts_.size(); i++) {
             auto st = getState(i);
             if (st == INVALID_RAFTSTATE || st.logs.empty() || index > st.logs.back().index)
                 continue;
@@ -165,9 +165,9 @@ protected:
     {
         LogId logIndex = -1;
 
-        for (int i = 0; i < 3; i++) {
+        for (uint i = 0; i < 3; i++) {
             // try all the servers, maybe one is the leader
-            for (int j = 0; j < rafts_.size(); j++) {
+            for (uint j = 0; j < rafts_.size(); j++) {
                 StartResult rs = callStartOf(j, cmd);
 
                 if (rs.isLeader) {
@@ -177,7 +177,7 @@ protected:
             }
 
             // check whether our command is submitted
-            for (int j = 0; j < 10; j++) {
+            for (uint j = 0; j < 10; j++) {
                 if (logIndex != -1) {
                     string cmd1;
                     int nd = nCommitted(logIndex, cmd1);
@@ -225,7 +225,7 @@ protected:
 
 TEST_F(RaftTest, SignleTest)
 {
-    const int RAFT_NUM = 1;
+    const uint RAFT_NUM = 1;
     initRafts(RAFT_NUM);
 
     Host addr;
@@ -233,14 +233,14 @@ TEST_F(RaftTest, SignleTest)
     RaftState st;
     addr.port = ports_[0];
 
-    for (int i = 0; i < 10; i++) {
+    for (uint i = 0; i < 10; i++) {
         auto start = NOW();
         st = getState(0);
         int dur = std::chrono::duration_cast<std::chrono::milliseconds>(NOW() - start).count();
         EXPECT_LT(dur, 10);
     }
 
-    for (int i = 0; i < 10; i++) {
+    for (uint i = 0; i < 10; i++) {
         auto start = NOW();
         std::stringstream ss;
         ss << st;
@@ -251,10 +251,10 @@ TEST_F(RaftTest, SignleTest)
 
 TEST_F(RaftTest, TestInitialElection2A)
 {
-    const int RAFT_NUM = 3;
+    const uint RAFT_NUM = 3;
     initRafts(RAFT_NUM);
 
-    for (int i = 0; i < RAFT_NUM; i++) {
+    for (uint i = 0; i < RAFT_NUM; i++) {
         RaftState st = getState(i);
         EXPECT_EQ(st.peers.size(), RAFT_NUM - 1);
     }
@@ -264,7 +264,7 @@ TEST_F(RaftTest, TestInitialElection2A)
 
 TEST_F(RaftTest, TestReElection2A)
 {
-    const int RAFT_NUM = 3;
+    const uint RAFT_NUM = 3;
     initRafts(RAFT_NUM);
 
     auto leaders = findLeaders();
@@ -292,7 +292,7 @@ TEST_F(RaftTest, TestReElection2A)
 
 TEST_F(RaftTest, TestManyElections2A)
 {
-    const int RAFT_NUM = 7;
+    const uint RAFT_NUM = 7;
     initRafts(RAFT_NUM);
 
     EXPECT_EQ(findLeaders().size(), 1);
@@ -300,7 +300,7 @@ TEST_F(RaftTest, TestManyElections2A)
     std::random_device rd;
     std::uniform_int_distribution<int> r(0, 6);
 
-    for (int i = 0; i < 10; i++) {
+    for (uint i = 0; i < 10; i++) {
         array<int, 3> rfs = { r(rd), r(rd), r(rd) };
         for (int j : rfs) {
             rafts_[j].killRaft();
@@ -319,7 +319,7 @@ TEST_F(RaftTest, TestManyElections2A)
 
 TEST_F(RaftTest, TestBasicAgree2B)
 {
-    const int RAFT_NUM = 3;
+    const uint RAFT_NUM = 3;
     initRafts(RAFT_NUM);
 
     for (int i = 1; i <= 3; i++) {
@@ -335,7 +335,7 @@ TEST_F(RaftTest, TestBasicAgree2B)
 
 TEST_F(RaftTest, TestFollowerFailure2B)
 {
-    const int RAFT_NUM = 3;
+    const uint RAFT_NUM = 3;
     initRafts(RAFT_NUM);
     int logIndex = 0;
 
@@ -377,7 +377,7 @@ TEST_F(RaftTest, TestFollowerFailure2B)
 
 TEST_F(RaftTest, TestLeaderFailure2B)
 {
-    const int RAFT_NUM = 3;
+    const uint RAFT_NUM = 3;
     initRafts(RAFT_NUM);
 
     string cmd = uniqueCmd();
@@ -410,7 +410,7 @@ TEST_F(RaftTest, TestLeaderFailure2B)
  */
 TEST_F(RaftTest, TestFailAgree2B)
 {
-    const int RAFT_NUM = 3;
+    const uint RAFT_NUM = 3;
     initRafts(RAFT_NUM);
 
     one(uniqueCmd(), RAFT_NUM, false);
@@ -432,7 +432,7 @@ TEST_F(RaftTest, TestFailAgree2B)
 
 TEST_F(RaftTest, TestFailNoAgree2B)
 {
-    const int RAFT_NUM = 5;
+    const uint RAFT_NUM = 5;
     initRafts(RAFT_NUM);
 
     one(uniqueCmd(), RAFT_NUM, false);
@@ -464,12 +464,12 @@ TEST_F(RaftTest, TestFailNoAgree2B)
 
 TEST_F(RaftTest, TestConcurrentStarts2B)
 {
-    const int RAFT_NUM = 3;
+    const uint RAFT_NUM = 3;
     initRafts(RAFT_NUM);
 
     int leader = checkOneLeader();
     vector<std::thread> threads(5);
-    for (int i = 0; i < threads.size(); i++) {
+    for (uint i = 0; i < threads.size(); i++) {
         threads[i] = std::thread([this, leader]() {
             ClientManager<RaftClient> man(hosts_.size(), RPC_TIMEOUT);
             for (int j = 0; j < 20; j++) {
@@ -486,7 +486,7 @@ TEST_F(RaftTest, TestConcurrentStarts2B)
         });
     };
 
-    for (int i = 0; i < threads.size(); i++) {
+    for (uint i = 0; i < threads.size(); i++) {
         threads[i].join();
     }
 
@@ -499,7 +499,7 @@ TEST_F(RaftTest, TestConcurrentStarts2B)
 
 TEST_F(RaftTest, TestBackup2B)
 {
-    const int RAFT_NUM = 5;
+    const uint RAFT_NUM = 5;
     initRafts(RAFT_NUM);
 
     one(uniqueCmd(), RAFT_NUM, true);
@@ -509,7 +509,7 @@ TEST_F(RaftTest, TestBackup2B)
     rafts_[(leader1 + 3) % RAFT_NUM].killRaft();
     rafts_[(leader1 + 4) % RAFT_NUM].killRaft();
 
-    for (int i = 0; i < 50; i++) {
+    for (uint i = 0; i < 50; i++) {
         callStartOf(leader1, uniqueCmd());
     }
     std::this_thread::sleep_for(MIN_ELECTION_TIMEOUT / 2);
@@ -524,7 +524,7 @@ TEST_F(RaftTest, TestPersistIndependently2C)
     FLAGS_log_dir = logDir_;
 
     string longPrefix;
-    for (int i = 0; i < 1024 * 128; i++) {
+    for (uint i = 0; i < 1024 * 128; i++) {
         longPrefix += ('a' + (i - 'a') % 26);
     }
 
@@ -571,14 +571,14 @@ TEST_F(RaftTest, TestPersistIndependently2C)
 
 TEST_F(RaftTest, TestPersist2C)
 {
-    const int RAFT_NUM = 3;
+    const uint RAFT_NUM = 3;
     initRafts(RAFT_NUM);
     string longPrefix;
-    for (int i = 0; i < 1024 * 128; i++) {
+    for (uint i = 0; i < 1024 * 128; i++) {
         longPrefix += ('a' + (i - 'a') % 26);
     }
 
-    for (int i = 0; i < 50; i++) {
+    for (uint i = 0; i < 50; i++) {
         std::string cmd = longPrefix + uniqueCmd();
         one(cmd, RAFT_NUM, false);
     }

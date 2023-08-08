@@ -59,7 +59,7 @@ RaftHandler::RaftHandler(vector<Host>& peers, Host me, string persisterDir, Stat
 {
     switchToFollow();
 
-    for (int i = 0; i < peers_.size(); i++) {
+    for (uint i = 0; i < peers_.size(); i++) {
         std::thread ae([this, i]() {
             this->async_replicateLogTo(i, peers_[i]);
         });
@@ -171,7 +171,7 @@ void RaftHandler::appendEntries(AppendEntriesResult& _return, const AppendEntrie
 
     {
         // If an existing entry conficts with a new one (same index but different terms), delete it!;
-        int i;
+        uint i;
         for (i = 0; i < params.entries.size(); i++) {
             auto& newEntry = params.entries[i];
             if (newEntry.index > lastLogIndex())
@@ -342,7 +342,7 @@ void RaftHandler::updateCommitIndex(LogId newIndex)
 
 LogEntry& RaftHandler::getLogByLogIndex(LogId logIndex)
 {
-    int i = logIndex - (logs_.empty() ? snapshotIndex_ : logs_.front().index);
+    uint i = logIndex - (logs_.empty() ? snapshotIndex_ : logs_.front().index);
     LOG_IF(FATAL, i < 0 || i > logs_.size()) << fmt::format("Unexpected log index {}, cur logs: {}", logIndex, logsRange(logs_));
     auto& entry = logs_[i];
     LOG_IF(FATAL, logIndex != entry.index) << "Unexpected log entry: " << entry << " in index: " << logIndex;
@@ -570,7 +570,7 @@ void RaftHandler::async_startElection() noexcept
     std::condition_variable cv;
 
     vector<std::thread> threads(peersForRV.size());
-    for (int i = 0; i < peersForRV.size(); i++) {
+    for (uint i = 0; i < peersForRV.size(); i++) {
         threads[i] = std::thread([i, this, &peersForRV, &params, &voteCnt, &finishCnt, &cv]() {
             RequestVoteResult rs;
             RaftClient* client;
@@ -604,7 +604,7 @@ void RaftHandler::async_startElection() noexcept
             LOG(ERROR) << fmt::format("Raft is not candidate now!");
     }
 
-    for (int i = 0; i < threads.size(); i++)
+    for (uint i = 0; i < threads.size(); i++)
         threads[i].join();
     inElection_ = false;
 }
@@ -627,20 +627,20 @@ void RaftHandler::async_sendHeartBeats() noexcept
             std::lock_guard<std::mutex> guard(raftLock_);
             if (state_ != ServerState::LEADER)
                 return;
-            for (int i = 0; i < peersForHB.size(); i++) {
+            for (uint i = 0; i < peersForHB.size(); i++) {
                 paramsList[i] = buildAppendEntriesParamsFor(i);
             }
         }
 
         auto startNext = NOW() + HEART_BEATS_INTERVAL;
         vector<std::thread> threads(peersForHB.size());
-        for (int i = 0; i < peersForHB.size(); i++) {
+        for (uint i = 0; i < peersForHB.size(); i++) {
             threads[i] = std::thread([i, &peersForHB, &paramsList, this]() {
                 async_sendLogsTo(i, peersForHB[i], paramsList[i], cmForHB_);
             });
         }
 
-        for (int i = 0; i < peersForHB.size(); i++) {
+        for (uint i = 0; i < peersForHB.size(); i++) {
             threads[i].join();
         }
         LOG_EVERY_N(INFO, HEART_BEATS_LOG_COUNT) << fmt::format("Broadcast {} heart beats", HEART_BEATS_LOG_COUNT);

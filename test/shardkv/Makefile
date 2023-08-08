@@ -1,14 +1,14 @@
 include ../../Global.mk
 
 ROOTDIR = ../..
-LIBS   := $(LIBS) -lkvraft-rpc -lraft -lkvraft -lshardkvraft -lgtest -lgtest_main 
+LIBS   := -lshardkvraft -lraft -lkvraft -lkvraft-rpc -lgtest -lgtest_main -lpthread $(LIBS) 
 
 DEPENDENCIES = $(LIB_DIR)/libraft.a $(LIB_DIR)/libkvraft-rpc.a $(LIB_DIR)/libkvraft.a $(LIB_DIR)/libshardkvraft.a
 
 all: make-shardkv $(BIN)/test_shardkv
 
 $(BIN)/test_shardkv: test_shardkv.cpp $(DEPENDENCIES) $(INC_DIR)/tools/*.hpp
-	$(CC) $(CPPFLAGS) $(LIBS) $(LDFLAGS) $(INC) -o $@ $<
+	$(CC) $< $(CPPFLAGS) $(LIBS) $(LDFLAGS) $(INC) -o $@ 
 
 .PHONY: clean clean-log-port make-shardkv run-test
 clean: clean-log-port
@@ -17,8 +17,13 @@ clean: clean-log-port
 clean-log-port:
 	rm -rf $(ROOTDIR)/logs/*
 	for port in 1 2 3 4 5 6 7; do \
-		lsof -i:700$$port -t | xargs kill -9; \
+		pid=`lsof -i:700$$port -t`;		  \
+		if [ ! -n "$$pid"]; \
+		then \
+			kill -s SIGKILL $$pid; \
+		fi \
 	done 
+
 
 make-shardkv:
 	make -C $(SRC_DIR)/rpc

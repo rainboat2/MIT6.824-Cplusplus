@@ -2,12 +2,12 @@
 
 ROOTDIR = ../..
 
-LIBS   := $(LIBS) -lmr-rpc
+LIBS   := $(LIBS) -lmr-rpc -lkvraft-rpc -ldl
 
 all: $(BIN)/master $(BIN)/worker $(BIN)/WordCount.so
 
 $(BIN)/%: %.cpp
-	$(CC) $(CPPFLAGS) $(LIBS) $(LDFLAGS) $(INC) -o $@ $<
+	$(CC) $< $(CPPFLAGS) $(LIBS) $(LDFLAGS) $(INC) -o $@
 
 $(BIN)/%.so : user-program/%.cpp
 	$(CC) $(CPPFLAGS) $(SHAREDFLAGS) $(INC) -o $@ $<

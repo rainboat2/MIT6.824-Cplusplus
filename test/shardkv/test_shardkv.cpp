@@ -44,7 +44,7 @@ protected:
         EXPECT_GE(ports_.size(), num);
 
         hosts_ = vector<Host>(num);
-        for (int i = 0; i < hosts_.size(); i++) {
+        for (uint i = 0; i < hosts_.size(); i++) {
             hosts_[i].ip = "127.0.0.1";
             hosts_[i].port = ports_[i];
         }
@@ -77,7 +77,7 @@ protected:
 
         for (GID gid = 0; gid < 3; gid++) {
             Host h;
-            for (int i = 0; i < ips.size(); i++) {
+            for (uint i = 0; i < ips.size(); i++) {
                 h.ip = ips[gid];
                 h.port = ports_[gid];
                 gid2hosts[gid].push_back(std::move(h));

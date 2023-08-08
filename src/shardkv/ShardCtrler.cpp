@@ -133,7 +133,7 @@ void ShardCtrler::handleJoin(const JoinArgs& join, const ApplyMsg& msg)
     };
     std::vector<GInfo> info(newConfig.gid2shards.size());
     {
-        int i = 0;
+        uint i = 0;
         for (auto it : newConfig.gid2shards) {
             info[i].first = it.first;
             info[i].second = it.second.size();
@@ -154,7 +154,7 @@ void ShardCtrler::handleJoin(const JoinArgs& join, const ApplyMsg& msg)
         gid2shards[ming].insert(sid);
         info.back().second++;
 
-        int i = 0;
+        uint i = 0;
         while ((i + 1) < info.size() && !less(info[i], info[i + 1]))
             swap(info[i], info[i + 1]);
 
@@ -256,7 +256,7 @@ void ShardCtrler::handleQuery(const QueryArgs& query, const ApplyMsg& msg)
 
     const int cn = query.configNum;
     Reply reply { ShardCtrlerOP::QUERY, false };
-    if (cn != LATEST_CONFIG_NUM && cn >= configs_.size()) {
+    if (cn != LATEST_CONFIG_NUM && cn >= static_cast<int>(configs_.size())) {
         reply.code = ErrorCode::ERR_NO_SUCH_SHARD_CONFIG;
     } else {
         reply.code = ErrorCode::SUCCEED;

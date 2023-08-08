@@ -29,8 +29,11 @@ MapReduce: MapReduce.thrift
 	mv gen-cpp $@
 	$(CC) $(CPPFLAGS) $(INC) -c $@/MapReduce_types.cpp -o $@/MapReduce_types.o
 	$(CC) $(CPPFLAGS) $(INC) -c $@/Master.cpp -o $@/Master.o
+	mkdir -p $(INC_DIR)/rpc/mapreduce
 	cp $@/*.h $(INC_DIR)/rpc/mapreduce
 
 clean:
 	rm -rf $(LIB_DIR)/libkvraft-rpc.a KVRaft
+	rm -rf $(LIB_DIR)/libmr-rpc.a MapReduce
 	rm -rf $(INC_DIR)/rpc/kvraft
+	rm -rf $(INC_DIR)/rpc/mapreduce

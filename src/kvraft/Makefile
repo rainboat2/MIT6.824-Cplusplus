@@ -12,8 +12,8 @@ DEPENDENCIES = $(LIB_DIR)/libraft.a $(LIB_DIR)/libkvraft-rpc.a
 
 all: $(BIN)/kvraft $(LIB_DIR)/libkvraft.a
 
-$(BIN)/kvraft: $(OBJECTS) $(DEPENDENCIES) 
-	$(CC) $(CPPFLAGS) $(LIBS) $(LDFLAGS) $(INC) -o $@ $(OBJECTS) KVMain.cpp
+$(BIN)/kvraft: KVMain.cpp $(OBJECTS) $(DEPENDENCIES) 
+	$(CC) $(OBJECTS) KVMain.cpp $(CPPFLAGS) $(LIBS) $(LDFLAGS) $(INC) -o $@ 
 
 $(LIB_DIR)/libkvraft.a: $(OBJECTS) $(DEPENDENCIES)
 	$(AR) $@ $(OBJECTS)

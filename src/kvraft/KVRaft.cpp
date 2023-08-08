@@ -1,5 +1,6 @@
 #include <fstream>
 #include <sstream>
+#include <sys/wait.h>
 
 #include <kvraft/KVRaft.h>
 #include <rpc/kvraft/KVRaft_types.h>

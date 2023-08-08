@@ -37,7 +37,7 @@ void sendRequest(RT& _return, const AT& args,
     }
 
     if (leaderId_ == -1) {
-        for (int i = 0; i < hosts_.size(); i++) {
+        for (uint i = 0; i < hosts_.size(); i++) {
             sendRequestTo(i, _return, args);
             if (!_return.wrongLeader) {
                 leaderId_ = i;

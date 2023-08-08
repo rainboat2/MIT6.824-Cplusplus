@@ -13,6 +13,7 @@
 #include <tools/ToString.hpp>
 
 #include <fmt/core.h>
+#include <fmt/ranges.h>
 #include <glog/logging.h>
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <thrift/server/TThreadedServer.h>
@@ -68,12 +69,12 @@ public:
         , completedCnt_(0)
         , workerId(1)
     {
-        for (int i = 0; i < mapTasks_.size(); i++) {
-            mapTasks_[i] = Task { i, TaskState::IDLE };
+        for (uint i = 0; i < mapTasks_.size(); i++) {
+            mapTasks_[i] = Task { static_cast<int>(i), TaskState::IDLE };
             mapTasks_[i].params.push_back(files[i]);
         }
 
-        for (int i = 0; i < mapTasks_.size(); i++)
+        for (uint i = 0; i < mapTasks_.size(); i++)
             idle_.push(i);
 
         std::thread de([this]() {
@@ -188,7 +189,7 @@ private:
         auto& rs_loc = result.rs_loc;
 
         vector<string> commit_files(rs_loc.size());
-        for (int i = 0; i < rs_loc.size(); i++) {
+        for (uint i = 0; i < rs_loc.size(); i++) {
             auto& name = rs_loc[i];
             // file name format: mr.mapTaskId.reduceTaskId
             string newName = fmt::format("mr.mid{}.rid{}", id, i);
@@ -197,8 +198,7 @@ private:
         }
         mapTasks_[id].results = std::move(commit_files);
 
-        LOG(INFO) << "Commit map task " << id << ", before commit: " << rs_loc
-                  << ", after commit: " << mapTasks_[id].results;
+        LOG(INFO) << fmt::format("Commit map task {}, before commit: {}, after commit: {}", id, rs_loc, mapTasks_[id].results);
     }
 
     void commitReduceTask(const TaskResult& result)
@@ -213,8 +213,7 @@ private:
         std::rename(rs_loc[0].c_str(), newName.c_str());
         reduceTasks_[id].results.push_back(std::move(newName));
 
-        LOG(INFO) << "Commit reduce task " << id << ", before commit: " << rs_loc
-                  << ", after commit: " << newName;
+        LOG(INFO) << fmt::format("Commit reduce task {}, before commit: {}, after commit: {}", id, rs_loc, newName);
     }
 
     void clearIntermediateFiles()
@@ -246,19 +245,19 @@ private:
         LOG(INFO) << fmt::format("Finished {} map tasks, switch to REDUCE_PHASE state.", completedCnt_);
         completedCnt_ = 0;
         state_ = MasterState::REDUCE_PHASE;
-        for (int i = 0; i < reduceTasks_.size(); i++) {
+        for (uint i = 0; i < reduceTasks_.size(); i++) {
             auto& task = reduceTasks_[i];
             task.id = i;
             task.state = TaskState::IDLE;
             task.params.reserve(mapTasks_.size());
 
             auto& params = task.params;
-            for (int j = 0; j < mapTasks_.size(); j++) {
+            for (uint j = 0; j < mapTasks_.size(); j++) {
                 params.push_back(mapTasks_[j].results[i]);
             }
         }
 
-        for (int i = 0; i < reduceTasks_.size(); i++) {
+        for (uint i = 0; i < reduceTasks_.size(); i++) {
             idle_.push(i);
         }
     }
@@ -343,7 +342,7 @@ private:
     mutex lock_;
     unordered_map<int, TaskProcessStatus> inProgress_;
     MasterState state_;
-    int32_t completedCnt_;
+    uint32_t completedCnt_;
     std::atomic<int> workerId;
     std::function<void(void)> exitServer_;
 };

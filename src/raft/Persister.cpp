@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cstdio>
 #include <deque>
 #include <dirent.h>
@@ -140,7 +141,7 @@ void Persister::flushLogBuf()
 bool Persister::checkState(TermId& term, Host& voteFor, std::deque<LogEntry>& logs)
 {
     LOG_IF(FATAL, term < 0) << "Invalid term: " << term;
-    for (int i = 1; i < logs.size(); i++) {
+    for (uint i = 1; i < logs.size(); i++) {
         auto& prevLog = logs[i - 1];
         auto& curLog = logs[i];
         if (curLog.index != prevLog.index + 1) {
@@ -170,8 +171,8 @@ int Persister::loadChunks()
             chunkNames_.push_back(file);
         }
     }
-    sort(chunkNames_.begin(), chunkNames_.end());
-    auto names =  std::vector<std::string>(chunkNames_.begin(), chunkNames_.end());
+    std::sort(chunkNames_.begin(), chunkNames_.end());
+    auto names = std::vector<std::string>(chunkNames_.begin(), chunkNames_.end());
     LOG(INFO) << "Load chunks: " << fmt::format("{}", fmt::join(names, ", "));
     return chunkNames_.size();
 }

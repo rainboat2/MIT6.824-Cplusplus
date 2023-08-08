@@ -3,7 +3,7 @@ TARGETS = MapReduce raft kvraft rpc shardkv
 
 all: $(TARGETS)
 
-MapReduce:
+MapReduce: rpc
 	make -C src/$@
 
 raft: rpc
