@@ -1,4 +1,4 @@
-TARGETS = MapReduce raft kvraft rpc shardkv
+TARGETS = rpc mMapReduce raft kvraft shardkv
 .PHONY: $(TARGETS) count-line clean
 
 all: $(TARGETS)
@@ -9,13 +9,13 @@ MapReduce: rpc
 raft: rpc
 	make -C src/$@
 
-kvraft: rpc
+kvraft: rpc raft
 	make -C src/$@
 
 rpc:
 	make -C src/$@
 
-shardkv:
+shardkv: rpc raft kvraft
 	make -C src/$@
 
 count-line:

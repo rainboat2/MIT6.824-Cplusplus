@@ -3,7 +3,7 @@ CPPFLAGS    = -std=c++14 -g -g3 -Wall -fsanitize=address
 # CPPFLAGS    = -std=c++14 -O2 -Wall
 SHAREDFLAGS = -fpic -shared -Wno-return-type-c-linkage
 LDFLAGS     = -L $(LIB_DIR)
-LIBS        = -lthrift -lgflags -lglog -lfmt
+LIBS        = -lthrift -lgflags -lglog -lfmt -lpthread
 INC         = -I $(ROOTDIR)/include
 AR          = ar -rcs
 

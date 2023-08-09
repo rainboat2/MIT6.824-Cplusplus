@@ -120,30 +120,34 @@ void KVRaft::apply(ApplyMsg msg)
 
 void KVRaft::startSnapShot(std::string filePath, std::function<void(LogId, TermId)> callback)
 {
-    pid_t pid;
-    LogId lastIndex;
-    TermId lastTerm;
     {
         // stop KV operations when fork
         std::lock_guard<std::mutex> guard(lock_);
-        lastIndex = lastApplyIndex_;
-        lastTerm = lastApplyTerm_;
-        pid = fork();
-    }
-
-    if (pid == 0) {
-        stopListenPort_();
         std::ofstream ofs(filePath);
         ofs << lastApplyIndex_ << ' ' << lastApplyTerm_ << '\n';
         for (auto it : um_) {
             ofs << it.first << ' ' << it.second << '\n';
         }
-        ofs.flush();
-        exit(0);
-    } else {
-        wait(&pid);
-        callback(lastIndex, lastTerm);
     }
+
+
+    /*
+     * when the process start 
+     */
+
+    // if (pid == 0) {
+    //     stopListenPort_();
+    //     std::ofstream ofs(filePath);
+    //     ofs << lastApplyIndex_ << ' ' << lastApplyTerm_ << '\n';
+    //     for (auto it : um_) {
+    //         ofs << it.first << ' ' << it.second << '\n';
+    //     }
+    //     ofs.flush();
+    //     std::exit(0);
+    // } else {
+    //     wait(&pid);
+    //     callback(lastIndex, lastTerm);
+    // }
 }
 
 void KVRaft::applySnapShot(std::string filePath)
