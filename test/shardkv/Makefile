@@ -24,7 +24,6 @@ clean-log-port:
 		fi \
 	done 
 
-
 make-shardkv:
 	make -C $(SRC_DIR)/rpc
 	make -C $(SRC_DIR)/raft

@@ -6,6 +6,40 @@
 #include <tools/Timer.hpp>
 #include <tools/ToString.hpp>
 
+#include <glog/logging.h>
+#include <glog/stl_logging.h>
+
+struct GInfo {
+    GID gid;
+    int shardCnt;
+
+    GInfo() = default;
+    GInfo(GID id, int cnt)
+        : gid(id)
+        , shardCnt(cnt)
+    {
+    }
+
+    bool operator<(const GInfo& g)
+    {
+        return shardCnt < g.shardCnt;
+    }
+
+public:
+    struct Cmp {
+        bool operator()(const GInfo& lhs, const GInfo& rhs)
+        {
+            return lhs.gid < rhs.gid;
+        }
+    };
+};
+
+static std::ostream& operator<<(std::ostream& out, const GInfo& info)
+{
+    out << fmt::format("({}, {})", info.gid, info.shardCnt);
+    return out;
+}
+
 ShardCtrler::ShardCtrler(std::vector<Host> peers, Host me, std::string persisterDir, int shards)
     : raft_(std::make_shared<RaftHandler>(peers, me, persisterDir, this))
     , lastApplyIndex_(0)
@@ -13,7 +47,7 @@ ShardCtrler::ShardCtrler(std::vector<Host> peers, Host me, std::string persister
 {
     Config init;
     init.configNum = 0;
-    init.shard2gid = std::vector<GID>(shards, -1);
+    init.shard2gid = std::vector<GID>(shards, INVALID_GID);
     configs_.push_back(std::move(init));
 }
 
@@ -52,36 +86,43 @@ void ShardCtrler::query(QueryReply& _return, const QueryArgs& qargs)
 
 void ShardCtrler::apply(ApplyMsg msg)
 {
+    Timer t(fmt::format("Apply cmd {}", msg.command), fmt::format("Finsh cmd {}", msg.command));
     std::lock_guard<std::mutex> guard(lock_);
 
     CtrlerArgs args = CtrlerArgs::deserialize(msg.command);
+    Reply rep;
     switch (args.op()) {
     case ShardCtrlerOP::JOIN: {
         JoinArgs join;
         args.copyTo(join);
-        handleJoin(join, msg);
+        rep = handleJoin(join, msg);
     } break;
 
     case ShardCtrlerOP::LEAVE: {
         LeaveArgs leave;
         args.copyTo(leave);
-        handleLeave(leave, msg);
+        rep = handleLeave(leave, msg);
     } break;
 
     case ShardCtrlerOP::MOVE: {
         MoveArgs move;
         args.copyTo(move);
-        handleMove(move, msg);
+        rep = handleMove(move, msg);
     } break;
 
     case ShardCtrlerOP::QUERY: {
         QueryArgs query;
         args.copyTo(query);
-        handleQuery(query, msg);
+        rep = handleQuery(query, msg);
     } break;
 
     default:
         LOG(FATAL) << "Unkonw args type!";
+    }
+
+    if (waits_.find(msg.commandIndex) != waits_.end()) {
+        waits_[msg.commandIndex].set_value(std::move(rep));
+        waits_.erase(msg.commandIndex);
     }
 
     LOG_IF(FATAL, lastApplyIndex_ + 1 != msg.commandIndex) << "Violation of linear consistency!";
@@ -99,19 +140,21 @@ void ShardCtrler::applySnapShot(std::string filePath)
     // do nothing
 }
 
-void ShardCtrler::handleJoin(const JoinArgs& join, const ApplyMsg& msg)
+ShardCtrler::Reply ShardCtrler::handleJoin(const JoinArgs& join, const ApplyMsg& msg)
 {
     auto newConfig = configs_.back();
     newConfig.configNum++;
 
-    bool noGroup = newConfig.gid2shards.empty();
+    auto& gid2shards = newConfig.gid2shards;
+    auto& shard2gid = newConfig.shard2gid;
+
+    bool noGroup = gid2shards.empty();
     for (auto& it : join.servers) {
         newConfig.gid2shards[it.first] = std::set<ShardId>();
     }
 
+    // add all shared to the new group if there is no group exist
     if (noGroup) {
-        auto& gid2shards = newConfig.gid2shards;
-        auto& shard2gid = newConfig.shard2gid;
         int shardNum = shard2gid.size();
         ShardId sid = 0;
         while (sid < shardNum) {
@@ -127,105 +170,94 @@ void ShardCtrler::handleJoin(const JoinArgs& join, const ApplyMsg& msg)
     }
 
     // balance the load
-    using GInfo = std::pair<GID, int>;
-    auto less = [](const GInfo n1, const GInfo n2) {
-        return n1.second < n2.second;
-    };
-    std::vector<GInfo> info(newConfig.gid2shards.size());
+    std::vector<GInfo> info(gid2shards.size());
     {
         uint i = 0;
         for (auto it : newConfig.gid2shards) {
-            info[i].first = it.first;
-            info[i].second = it.second.size();
+            info[i].gid = it.first;
+            info[i].shardCnt = it.second.size();
             i++;
         }
     }
-    sort(info.begin(), info.end(), less);
+    sort(info.begin(), info.end());
 
     // adjust the balance util the difference bwtween max load and min load is 1
-    while (info.front().second < info.back().second - 1) {
-        GID maxg = info.back().first;
-        GID ming = info.front().first;
-        auto& gid2shards = newConfig.gid2shards;
+    while (true) {
+        int diff = info.front().shardCnt - info.back().shardCnt;
+        if (abs(diff) <= 1)
+            break;
+
+        GID maxg = info.back().gid;
+        GID ming = info.front().gid;
 
         auto sid = *gid2shards[maxg].begin();
         gid2shards[maxg].erase(sid);
-        info.front().second++;
+        info.front().shardCnt++;
         gid2shards[ming].insert(sid);
-        info.back().second++;
+        info.back().shardCnt--;
 
         uint i = 0;
-        while ((i + 1) < info.size() && !less(info[i], info[i + 1]))
-            swap(info[i], info[i + 1]);
+        while ((i + 1) < info.size() && info[i + 1] < info[i])
+            std::swap(info[i], info[i + 1]);
 
         i = info.size() - 1;
-        while (i > 0 && !less(info[i - 1], info[i]))
-            swap(info[i - 1], info[i]);
+        while (i > 0 && info[i] < info[i - 1])
+            std::swap(info[i - 1], info[i]);
     }
 
     configs_.push_back(std::move(newConfig));
-    LOG(INFO) << "After join, new config: " << to_string(newConfig);
+    LOG(INFO) << "After join, new config: " << to_string(newConfig) << ", groupInfo: " << info;
 
-    Reply rep;
-    rep.code = ErrorCode::SUCCEED;
-    rep.op = ShardCtrlerOP::JOIN;
-    rep.wrongLeader = false;
-
-    if (waits_.find(msg.commandIndex) != waits_.end()) {
-        waits_[msg.commandIndex].set_value(std::move(rep));
-        waits_.erase(msg.commandIndex);
-    }
+    return defaultReply(ShardCtrlerOP::JOIN);
 }
 
-void ShardCtrler::handleLeave(const LeaveArgs& leave, const ApplyMsg& msg)
+ShardCtrler::Reply ShardCtrler::handleLeave(const LeaveArgs& leave, const ApplyMsg& msg)
 {
-    std::unordered_set<ShardId> shards;
     auto newConfig = configs_.back();
     newConfig.configNum++;
+
+    auto& gid2shards = newConfig.gid2shards;
+    auto& shard2gid = newConfig.shard2gid;
+
+    std::unordered_set<ShardId> shards;
     for (GID gid : leave.gids) {
-        for (ShardId id : newConfig.gid2shards[gid]) {
+        for (ShardId id : gid2shards[gid]) {
             shards.insert(id);
         }
-        newConfig.gid2shards.erase(gid);
+        gid2shards.erase(gid);
     }
 
-    /*
-     * Add shards to existing groups as load-balanced as possible
-     */
-    using GInfo = std::pair<GID, int>;
-    auto cmp = [](const GInfo n1, const GInfo n2) {
-        return n1.second < n2.second;
-    };
-    std::priority_queue<GInfo, std::vector<GInfo>, decltype(cmp)> pq(cmp);
-    for (auto& it : newConfig.gid2shards) {
-        pq.emplace(it.first, it.second.size());
-    }
+    if (gid2shards.empty()) {
+        for (auto sid : shards) {
+            shard2gid[sid] = INVALID_GID;
+        }
+    } else {
+        /*
+         * Add shards to existing groups as load-balanced as possible
+         */
+        std::priority_queue<GInfo, std::vector<GInfo>, GInfo::Cmp> pq;
+        for (auto& it : gid2shards) {
+            pq.emplace(it.first, it.second.size());
+        }
 
-    for (auto sid : shards) {
-        auto gi = pq.top();
-        GID gid = gi.first;
-        int cnt = gi.second;
+        for (auto sid : shards) {
+            auto gi = pq.top();
+            GID gid = gi.gid;
+            int cnt = gi.shardCnt;
 
-        pq.pop();
-        newConfig.gid2shards[gid].insert(sid);
-        newConfig.shard2gid[sid] = gid;
-        pq.emplace(gid, cnt + 1);
+            pq.pop();
+            gid2shards[gid].insert(sid);
+            shard2gid[sid] = gid;
+            pq.emplace(gid, cnt + 1);
+        }
     }
 
     configs_.push_back(std::move(newConfig));
 
-    Reply rep;
-    rep.code = ErrorCode::SUCCEED;
-    rep.op = ShardCtrlerOP::LEAVE;
-    rep.wrongLeader = false;
-
-    if (waits_.find(msg.commandIndex) != waits_.end()) {
-        waits_[msg.commandIndex].set_value(std::move(rep));
-        waits_.erase(msg.commandIndex);
-    }
+    return defaultReply(ShardCtrlerOP::LEAVE);
 }
 
-void ShardCtrler::handleMove(const MoveArgs& move, const ApplyMsg& msg)
+ShardCtrler::Reply ShardCtrler::handleMove(const MoveArgs& move, const ApplyMsg& msg)
 {
     Config newConfig = configs_.back();
     ShardId sid = move.shard;
@@ -238,40 +270,32 @@ void ShardCtrler::handleMove(const MoveArgs& move, const ApplyMsg& msg)
 
     configs_.push_back(std::move(newConfig));
 
-    if (waits_.find(msg.commandIndex) != waits_.end()) {
-        Reply rep;
-        rep.code = ErrorCode::SUCCEED;
-        rep.op = ShardCtrlerOP::MOVE;
-        rep.wrongLeader = false;
-
-        waits_[msg.commandIndex].set_value(std::move(rep));
-        waits_.erase(msg.commandIndex);
-    }
+    return defaultReply(ShardCtrlerOP::MOVE);
 }
 
-void ShardCtrler::handleQuery(const QueryArgs& query, const ApplyMsg& msg)
+ShardCtrler::Reply ShardCtrler::handleQuery(const QueryArgs& query, const ApplyMsg& msg)
 {
+    Reply rep = defaultReply(ShardCtrlerOP::QUERY);
+
     if (waits_.find(msg.commandIndex) == waits_.end())
-        return;
+        return rep;
 
     const int cn = query.configNum;
-    Reply reply { ShardCtrlerOP::QUERY, false };
+
     if (cn != LATEST_CONFIG_NUM && cn >= static_cast<int>(configs_.size())) {
-        reply.code = ErrorCode::ERR_NO_SUCH_SHARD_CONFIG;
+        rep.code = ErrorCode::ERR_NO_SUCH_SHARD_CONFIG;
     } else {
-        reply.code = ErrorCode::SUCCEED;
+        rep.code = ErrorCode::SUCCEED;
 
         if (cn == LATEST_CONFIG_NUM) {
-            reply.config = configs_.back();
-            LOG(INFO) << "Get Latest config " << reply.config;
+            rep.config = configs_.back();
+            LOG(INFO) << "Get Latest config " << rep.config;
         } else {
-            reply.config = configs_[cn];
-            LOG(INFO) << "Get config at " << cn << ": " << reply.config;
+            rep.config = configs_[cn];
+            LOG(INFO) << "Get config at " << cn << ": " << rep.config;
         }
     }
-
-    waits_[msg.commandIndex].set_value(std::move(reply));
-    waits_.erase(msg.commandIndex);
+    return rep;
 }
 
 ShardCtrler::Reply ShardCtrler::sendArgsToRaft(const CtrlerArgs& args)

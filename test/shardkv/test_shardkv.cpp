@@ -143,4 +143,74 @@ TEST_F(ShardCtrlerTest, BasicTest4A)
             EXPECT_EQ(gid, 0);
         }
     }
+
+    {
+        JoinReply jrep;
+        JoinArgs join;
+        join.servers[1] = gid2hosts[1];
+        clerk.join(jrep, join);
+        EXPECT_EQ(jrep.code, ErrorCode::SUCCEED);
+    }
+
+    {
+        QueryReply qrep;
+        QueryArgs args;
+        args.configNum = LATEST_CONFIG_NUM;
+        clerk.query(qrep, args);
+        EXPECT_EQ(qrep.code, ErrorCode::SUCCEED);
+        Config config = qrep.config;
+        EXPECT_EQ(config.configNum, 2);
+        EXPECT_EQ(config.gid2shards.size(), 2);
+
+        for (GID gid : config.shard2gid){
+            EXPECT_TRUE(gid == 1 || gid == 0);
+        }
+    }
+
+    {
+        LeaveReply lrep;
+        LeaveArgs leave;
+        leave.gids = {1};
+        clerk.leave(lrep, leave);
+        EXPECT_EQ(lrep.code, ErrorCode::SUCCEED);
+    }
+
+    {
+        QueryReply qrep;
+        QueryArgs args;
+        args.configNum = LATEST_CONFIG_NUM;
+        clerk.query(qrep, args);
+        EXPECT_EQ(qrep.code, ErrorCode::SUCCEED);
+        Config config = qrep.config;
+        EXPECT_EQ(config.configNum, 3);
+        EXPECT_EQ(config.gid2shards.size(), 1);
+
+        for (GID gid : config.shard2gid){
+            EXPECT_EQ(gid, 0);
+        }
+    }
+
+    {
+        LeaveReply lrep;
+        LeaveArgs leave;
+        leave.gids = {0};
+        clerk.leave(lrep, leave);
+        EXPECT_EQ(lrep.code, ErrorCode::SUCCEED);
+    }
+
+    {
+        QueryReply qrep;
+        QueryArgs args;
+        args.configNum = LATEST_CONFIG_NUM;
+        clerk.query(qrep, args);
+        EXPECT_EQ(qrep.code, ErrorCode::SUCCEED);
+        Config config = qrep.config;
+        EXPECT_EQ(config.configNum, 4);
+        EXPECT_EQ(config.gid2shards.size(), 0);
+
+        for (GID gid : config.shard2gid){
+            EXPECT_EQ(gid, INVALID_GID);
+        }
+    }
+
 }
