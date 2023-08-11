@@ -90,19 +90,23 @@ enum PutOp {
 struct PutAppendParams {
     1: string key,
     2: string value,
-    3: PutOp op
+    3: PutOp op,
+    4: GID gid,
+    5: ShardId sid
 }
 
 struct PutAppendReply {
-    1: ErrorCode status;
+    1: ErrorCode code;
 }
 
 struct GetParams {
     1: string key
+    2: GID gid,
+    3: ShardId sid
 }
 
 struct GetReply {
-    1: ErrorCode status
+    1: ErrorCode code 
     2: string value
 }
 

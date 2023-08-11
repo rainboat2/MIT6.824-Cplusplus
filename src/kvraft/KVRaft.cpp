@@ -26,7 +26,7 @@ void KVRaft::putAppend(PutAppendReply& _return, const PutAppendParams& params)
     raft_->start(sr, command);
 
     if (!sr.isLeader) {
-        _return.status = ErrorCode::ERR_WRONG_LEADER;
+        _return.code = ErrorCode::ERR_WRONG_LEADER;
         return;
     }
 
@@ -49,7 +49,7 @@ void KVRaft::get(GetReply& _return, const GetParams& params)
     raft_->start(sr, command);
 
     if (!sr.isLeader) {
-        _return.status = ErrorCode::ERR_WRONG_LEADER;
+        _return.code = ErrorCode::ERR_WRONG_LEADER;
         return;
     }
 
@@ -130,11 +130,6 @@ void KVRaft::startSnapShot(std::string filePath, std::function<void(LogId, TermI
         }
     }
 
-
-    /*
-     * when the process start 
-     */
-
     // if (pid == 0) {
     //     stopListenPort_();
     //     std::ofstream ofs(filePath);
@@ -177,15 +172,15 @@ void KVRaft::putAppend_internal(PutAppendReply& _return, const PutAppendParams& 
         LOG(FATAL) << "Unexpected operation: " << params.op;
         break;
     }
-    _return.status = ErrorCode::SUCCEED;
+    _return.code = ErrorCode::SUCCEED;
 }
 
 void KVRaft::get_internal(GetReply& _return, const GetParams& params)
 {
     if (um_.find(params.key) == um_.end()) {
-        _return.status = ErrorCode::ERR_NO_KEY;
+        _return.code = ErrorCode::ERR_NO_KEY;
     } else {
-        _return.status = ErrorCode::SUCCEED;
+        _return.code = ErrorCode::SUCCEED;
         _return.value = um_[params.key];
     }
 }
