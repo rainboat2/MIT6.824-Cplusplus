@@ -35,6 +35,20 @@
 brew install thrift fmt gtest glog gflags
 ```
 
+### Linux
+目前尝试过在ubuntu20.04环境下安装这些依赖，需要手动编译安装第三方库，流程不难但是比较繁琐。因此提供了一个预安装好所有依赖的docker镜像，配合VSCode进行远程开发，免去后续配置环境的麻烦，一举解决所有Linux平台上依赖的问题。
+
+```shell
+# 拉取镜像
+docker pull 1049696130/kvraft-dev
+
+# 运行docker容器（注意我的代码放在了~/Documents/MIT6.824这个目录下）
+docker run -dit -v ~/Documents/MIT6.824:/root/MIT6.824 --name mit-build 1049696130/kvraft-dev
+
+# 进入docker容器
+docker exec -it mit-build bash
+```
+
 ## 构建项目
 
 本项目使用`make`来作为构建构建，下面分别给出了每个部分的编译
@@ -63,11 +77,28 @@ make raft
 make kvraft
 ```
 
+### shardkv
+
+执行如下命令构建shardkv静态库
+```shell
+make shardkv
+```
+
+
 ## Test
 
 Raft的整体逻辑较为容易理解，但是实现的时候就会发现细节超多，因此实现raft最为痛苦的地方在于debug，本项目使用gtest来编写测试用例，运行如下的命令来运行测试用例
 ```shell
+# 运行raft测试用例
 cd test/raft
+make run-test
+
+# 运行raft测试用例
+cd test/kvraft
+make run-test
+
+# 运行raft测试用例
+cd test/shardkv
 make run-test
 ```
 

@@ -15,6 +15,7 @@
 class CtrlerArgs;
 
 constexpr int LATEST_CONFIG_NUM = -1;
+constexpr int INVALID_GID = -1;
 
 enum class ShardCtrlerOP {
     JOIN,
@@ -79,15 +80,17 @@ public:
     void applySnapShot(std::string filePath) override;
 
 private:
-    void handleJoin(const JoinArgs& join, const ApplyMsg& msg);
+    Reply handleJoin(const JoinArgs& join, const ApplyMsg& msg);
 
-    void handleLeave(const LeaveArgs& leave, const ApplyMsg& msg);
+    Reply handleLeave(const LeaveArgs& leave, const ApplyMsg& msg);
 
-    void handleMove(const MoveArgs& move, const ApplyMsg& msg);
+    Reply handleMove(const MoveArgs& move, const ApplyMsg& msg);
 
-    void handleQuery(const QueryArgs& query, const ApplyMsg& msg);
+    Reply handleQuery(const QueryArgs& query, const ApplyMsg& msg);
 
     Reply sendArgsToRaft(const CtrlerArgs& args);
+
+    Reply defaultReply(ShardCtrlerOP op);
 
 private:
     std::vector<Config> configs_;
@@ -118,6 +121,14 @@ inline void ShardCtrler::start(StartResult& _return, const std::string& command)
 inline TermId ShardCtrler::installSnapshot(const InstallSnapshotParams& params)
 {
     return raft_->installSnapshot(params);
+}
+
+inline ShardCtrler::Reply ShardCtrler::defaultReply(ShardCtrlerOP op) {
+    Reply rep;
+    rep.code = ErrorCode::SUCCEED;
+    rep.op = op; 
+    rep.wrongLeader = false;
+    return rep;
 }
 
 #endif

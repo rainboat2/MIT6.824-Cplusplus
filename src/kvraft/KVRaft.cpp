@@ -26,7 +26,7 @@ void KVRaft::putAppend(PutAppendReply& _return, const PutAppendParams& params)
     raft_->start(sr, command);
 
     if (!sr.isLeader) {
-        _return.status = ErrorCode::ERR_WRONG_LEADER;
+        _return.code = ErrorCode::ERR_WRONG_LEADER;
         return;
     }
 
@@ -49,7 +49,7 @@ void KVRaft::get(GetReply& _return, const GetParams& params)
     raft_->start(sr, command);
 
     if (!sr.isLeader) {
-        _return.status = ErrorCode::ERR_WRONG_LEADER;
+        _return.code = ErrorCode::ERR_WRONG_LEADER;
         return;
     }
 
@@ -120,30 +120,29 @@ void KVRaft::apply(ApplyMsg msg)
 
 void KVRaft::startSnapShot(std::string filePath, std::function<void(LogId, TermId)> callback)
 {
-    pid_t pid;
-    LogId lastIndex;
-    TermId lastTerm;
     {
         // stop KV operations when fork
         std::lock_guard<std::mutex> guard(lock_);
-        lastIndex = lastApplyIndex_;
-        lastTerm = lastApplyTerm_;
-        pid = fork();
-    }
-
-    if (pid == 0) {
-        stopListenPort_();
         std::ofstream ofs(filePath);
         ofs << lastApplyIndex_ << ' ' << lastApplyTerm_ << '\n';
         for (auto it : um_) {
             ofs << it.first << ' ' << it.second << '\n';
         }
-        ofs.flush();
-        exit(0);
-    } else {
-        wait(&pid);
-        callback(lastIndex, lastTerm);
     }
+
+    // if (pid == 0) {
+    //     stopListenPort_();
+    //     std::ofstream ofs(filePath);
+    //     ofs << lastApplyIndex_ << ' ' << lastApplyTerm_ << '\n';
+    //     for (auto it : um_) {
+    //         ofs << it.first << ' ' << it.second << '\n';
+    //     }
+    //     ofs.flush();
+    //     std::exit(0);
+    // } else {
+    //     wait(&pid);
+    //     callback(lastIndex, lastTerm);
+    // }
 }
 
 void KVRaft::applySnapShot(std::string filePath)
@@ -173,15 +172,15 @@ void KVRaft::putAppend_internal(PutAppendReply& _return, const PutAppendParams& 
         LOG(FATAL) << "Unexpected operation: " << params.op;
         break;
     }
-    _return.status = ErrorCode::SUCCEED;
+    _return.code = ErrorCode::SUCCEED;
 }
 
 void KVRaft::get_internal(GetReply& _return, const GetParams& params)
 {
     if (um_.find(params.key) == um_.end()) {
-        _return.status = ErrorCode::ERR_NO_KEY;
+        _return.code = ErrorCode::ERR_NO_KEY;
     } else {
-        _return.status = ErrorCode::SUCCEED;
+        _return.code = ErrorCode::SUCCEED;
         _return.value = um_[params.key];
     }
 }

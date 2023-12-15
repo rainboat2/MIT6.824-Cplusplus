@@ -3,7 +3,7 @@
 ROOTDIR = ../..
 LIBS    := $(LIBS) -lkvraft-rpc -lraft -lkvraft
 
-SHARDKV_SRC = ShardCtrler.cpp ShardCtrlerClerk.cpp ShardKV.cpp ShardKVClerk.cpp
+SHARDKV_SRC = ShardCtrler.cpp ShardCtrlerClerk.cpp ShardKV.cpp ShardKVClerk.cpp KVService.cpp
 
 SHARDKV_OBJ = $(addprefix $(OBJECTS_DIR)/, $(SHARDKV_SRC:cpp=o))
 OBJECTS = $(SHARDKV_OBJ)

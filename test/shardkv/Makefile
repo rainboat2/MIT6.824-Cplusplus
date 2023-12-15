@@ -18,12 +18,11 @@ clean-log-port:
 	rm -rf $(ROOTDIR)/logs/*
 	for port in 1 2 3 4 5 6 7; do \
 		pid=`lsof -i:700$$port -t`;		  \
-		if [ ! -n "$$pid"]; \
+		if [ "$$pid" ]; \
 		then \
-			kill -s SIGKILL $$pid; \
+			kill -s 9 $$pid; \
 		fi \
 	done 
-
 
 make-shardkv:
 	make -C $(SRC_DIR)/rpc

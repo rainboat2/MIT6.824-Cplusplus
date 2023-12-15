@@ -15,7 +15,7 @@ void KVClerk::putAppend(PutAppendReply& _return, const PutAppendParams& params)
 {
     if (leaderId_ != -1) {
         putAppendTo(leaderId_, _return, params);
-        if (_return.status == ErrorCode::ERR_WRONG_LEADER) {
+        if (_return.code == ErrorCode::ERR_WRONG_LEADER) {
             leaderId_ = -1;
         }
     }
@@ -23,7 +23,7 @@ void KVClerk::putAppend(PutAppendReply& _return, const PutAppendParams& params)
     if (leaderId_ == -1) {
         for (uint i = 0; i < hosts_.size(); i++) {
             putAppendTo(i, _return, params);
-            if (_return.status != ErrorCode::ERR_WRONG_LEADER) {
+            if (_return.code != ErrorCode::ERR_WRONG_LEADER) {
                 leaderId_ = i;
                 break;
             }
@@ -38,7 +38,7 @@ void KVClerk::get(GetReply& _return, const GetParams& params)
 {
     if (leaderId_ != -1) {
         getTo(leaderId_, _return, params);
-        if (_return.status == ErrorCode::ERR_WRONG_LEADER) {
+        if (_return.code == ErrorCode::ERR_WRONG_LEADER) {
             leaderId_ = -1;
         }
     }
@@ -46,7 +46,7 @@ void KVClerk::get(GetReply& _return, const GetParams& params)
     if (leaderId_ == -1) {
         for (uint i = 0; i < hosts_.size(); i++) {
             getTo(i, _return, params);
-            if (_return.status != ErrorCode::ERR_WRONG_LEADER) {
+            if (_return.code != ErrorCode::ERR_WRONG_LEADER) {
                 leaderId_ = i;
                 break;
             }
@@ -64,7 +64,7 @@ void KVClerk::putAppendTo(int hostId, PutAppendReply& _return, const PutAppendPa
         client->putAppend(_return, params);
     } catch (apache::thrift::TException& tx) {
         clients_.setInvalid(hostId);
-        _return.status = ErrorCode::ERR_WRONG_LEADER;
+        _return.code = ErrorCode::ERR_WRONG_LEADER;
         // LOG(INFO) << "Send request to " << to_string(hosts_[hostId]) << "failed!: " << tx.what();
     }
 }
@@ -76,7 +76,7 @@ void KVClerk::getTo(int hostId, GetReply& _return, const GetParams& params)
         client->get(_return, params);
     } catch (apache::thrift::TException& tx) {
         clients_.setInvalid(hostId);
-        _return.status = ErrorCode::ERR_WRONG_LEADER;
+        _return.code = ErrorCode::ERR_WRONG_LEADER;
         // LOG(INFO) << "Send request to " << to_string(hosts_[hostId]) << "failed!: " << tx.what();
     }
 }

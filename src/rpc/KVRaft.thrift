@@ -13,7 +13,14 @@ enum ErrorCode {
     ERR_REQUEST_FAILD,
     ERR_NO_KEY,
     ERR_WRONG_LEADER,
-    ERR_NO_SUCH_SHARD_CONFIG
+    ERR_NO_SHARD,
+    ERR_INVALID_SHARD,
+    ERR_NO_SUCH_SHARD_CONFIG,
+    ERR_NOT_SUPPORT_OPERATOR
+}
+
+enum ShardStatus {
+    SERVERING, PULLING, PUSHING, STOP
 }
 
 /* ================= structs for raft =====================*/
@@ -84,26 +91,32 @@ struct StartResult {
 /* ================= structs for kvraft =====================*/
 
 enum PutOp {
-    PUT, APPEND
+    PUT = 0, APPEND
 }
 
 struct PutAppendParams {
-    1: string key,
-    2: string value,
-    3: PutOp op
+    1: string key;
+    2: string value;
+    3: PutOp op;
+    4: GID gid;
+    5: ShardId sid;
 }
 
 struct PutAppendReply {
-    1: ErrorCode status;
+    1: ErrorCode code;
+    2: ShardStatus status;
 }
 
 struct GetParams {
-    1: string key
+    1: string key;
+    2: GID gid;
+    3: ShardId sid;
 }
 
 struct GetReply {
-    1: ErrorCode status
-    2: string value
+    1: ErrorCode code; 
+    2: string value;
+    3: ShardStatus status;
 }
 
 struct InstallSnapshotParams {

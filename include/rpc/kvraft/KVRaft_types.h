@@ -27,7 +27,10 @@ struct ErrorCode {
     ERR_REQUEST_FAILD = 1,
     ERR_NO_KEY = 2,
     ERR_WRONG_LEADER = 3,
-    ERR_NO_SUCH_SHARD_CONFIG = 4
+    ERR_NO_SHARD = 4,
+    ERR_INVALID_SHARD = 5,
+    ERR_NO_SUCH_SHARD_CONFIG = 6,
+    ERR_NOT_SUPPORT_OPERATOR = 7
   };
 };
 
@@ -36,6 +39,21 @@ extern const std::map<int, const char*> _ErrorCode_VALUES_TO_NAMES;
 std::ostream& operator<<(std::ostream& out, const ErrorCode::type& val);
 
 std::string to_string(const ErrorCode::type& val);
+
+struct ShardStatus {
+  enum type {
+    SERVERING = 0,
+    PULLING = 1,
+    PUSHING = 2,
+    STOP = 3
+  };
+};
+
+extern const std::map<int, const char*> _ShardStatus_VALUES_TO_NAMES;
+
+std::ostream& operator<<(std::ostream& out, const ShardStatus::type& val);
+
+std::string to_string(const ShardStatus::type& val);
 
 struct ServerState {
   enum type {
@@ -657,10 +675,12 @@ void swap(StartResult &a, StartResult &b);
 std::ostream& operator<<(std::ostream& out, const StartResult& obj);
 
 typedef struct _PutAppendParams__isset {
-  _PutAppendParams__isset() : key(false), value(false), op(false) {}
+  _PutAppendParams__isset() : key(false), value(false), op(false), gid(false), sid(false) {}
   bool key :1;
   bool value :1;
   bool op :1;
+  bool gid :1;
+  bool sid :1;
 } _PutAppendParams__isset;
 
 class PutAppendParams : public virtual ::apache::thrift::TBase {
@@ -671,7 +691,9 @@ class PutAppendParams : public virtual ::apache::thrift::TBase {
   PutAppendParams() noexcept
                   : key(),
                     value(),
-                    op(static_cast<PutOp::type>(0)) {
+                    op(static_cast<PutOp::type>(0)),
+                    gid(0),
+                    sid(0) {
   }
 
   virtual ~PutAppendParams() noexcept;
@@ -682,6 +704,8 @@ class PutAppendParams : public virtual ::apache::thrift::TBase {
    * @see PutOp
    */
   PutOp::type op;
+  GID gid;
+  ShardId sid;
 
   _PutAppendParams__isset __isset;
 
@@ -691,6 +715,10 @@ class PutAppendParams : public virtual ::apache::thrift::TBase {
 
   void __set_op(const PutOp::type val);
 
+  void __set_gid(const GID val);
+
+  void __set_sid(const ShardId val);
+
   bool operator == (const PutAppendParams & rhs) const
   {
     if (!(key == rhs.key))
@@ -698,6 +726,10 @@ class PutAppendParams : public virtual ::apache::thrift::TBase {
     if (!(value == rhs.value))
       return false;
     if (!(op == rhs.op))
+      return false;
+    if (!(gid == rhs.gid))
+      return false;
+    if (!(sid == rhs.sid))
       return false;
     return true;
   }
@@ -718,7 +750,8 @@ void swap(PutAppendParams &a, PutAppendParams &b);
 std::ostream& operator<<(std::ostream& out, const PutAppendParams& obj);
 
 typedef struct _PutAppendReply__isset {
-  _PutAppendReply__isset() : status(false) {}
+  _PutAppendReply__isset() : code(false), status(false) {}
+  bool code :1;
   bool status :1;
 } _PutAppendReply__isset;
 
@@ -728,7 +761,8 @@ class PutAppendReply : public virtual ::apache::thrift::TBase {
   PutAppendReply(const PutAppendReply&) noexcept;
   PutAppendReply& operator=(const PutAppendReply&) noexcept;
   PutAppendReply() noexcept
-                 : status(static_cast<ErrorCode::type>(0)) {
+                 : code(static_cast<ErrorCode::type>(0)),
+                   status(static_cast<ShardStatus::type>(0)) {
   }
 
   virtual ~PutAppendReply() noexcept;
@@ -736,14 +770,23 @@ class PutAppendReply : public virtual ::apache::thrift::TBase {
    * 
    * @see ErrorCode
    */
-  ErrorCode::type status;
+  ErrorCode::type code;
+  /**
+   * 
+   * @see ShardStatus
+   */
+  ShardStatus::type status;
 
   _PutAppendReply__isset __isset;
 
-  void __set_status(const ErrorCode::type val);
+  void __set_code(const ErrorCode::type val);
+
+  void __set_status(const ShardStatus::type val);
 
   bool operator == (const PutAppendReply & rhs) const
   {
+    if (!(code == rhs.code))
+      return false;
     if (!(status == rhs.status))
       return false;
     return true;
@@ -765,8 +808,10 @@ void swap(PutAppendReply &a, PutAppendReply &b);
 std::ostream& operator<<(std::ostream& out, const PutAppendReply& obj);
 
 typedef struct _GetParams__isset {
-  _GetParams__isset() : key(false) {}
+  _GetParams__isset() : key(false), gid(false), sid(false) {}
   bool key :1;
+  bool gid :1;
+  bool sid :1;
 } _GetParams__isset;
 
 class GetParams : public virtual ::apache::thrift::TBase {
@@ -775,19 +820,31 @@ class GetParams : public virtual ::apache::thrift::TBase {
   GetParams(const GetParams&);
   GetParams& operator=(const GetParams&);
   GetParams() noexcept
-            : key() {
+            : key(),
+              gid(0),
+              sid(0) {
   }
 
   virtual ~GetParams() noexcept;
   std::string key;
+  GID gid;
+  ShardId sid;
 
   _GetParams__isset __isset;
 
   void __set_key(const std::string& val);
 
+  void __set_gid(const GID val);
+
+  void __set_sid(const ShardId val);
+
   bool operator == (const GetParams & rhs) const
   {
     if (!(key == rhs.key))
+      return false;
+    if (!(gid == rhs.gid))
+      return false;
+    if (!(sid == rhs.sid))
       return false;
     return true;
   }
@@ -808,9 +865,10 @@ void swap(GetParams &a, GetParams &b);
 std::ostream& operator<<(std::ostream& out, const GetParams& obj);
 
 typedef struct _GetReply__isset {
-  _GetReply__isset() : status(false), value(false) {}
-  bool status :1;
+  _GetReply__isset() : code(false), value(false), status(false) {}
+  bool code :1;
   bool value :1;
+  bool status :1;
 } _GetReply__isset;
 
 class GetReply : public virtual ::apache::thrift::TBase {
@@ -819,8 +877,9 @@ class GetReply : public virtual ::apache::thrift::TBase {
   GetReply(const GetReply&);
   GetReply& operator=(const GetReply&);
   GetReply() noexcept
-           : status(static_cast<ErrorCode::type>(0)),
-             value() {
+           : code(static_cast<ErrorCode::type>(0)),
+             value(),
+             status(static_cast<ShardStatus::type>(0)) {
   }
 
   virtual ~GetReply() noexcept;
@@ -828,20 +887,29 @@ class GetReply : public virtual ::apache::thrift::TBase {
    * 
    * @see ErrorCode
    */
-  ErrorCode::type status;
+  ErrorCode::type code;
   std::string value;
+  /**
+   * 
+   * @see ShardStatus
+   */
+  ShardStatus::type status;
 
   _GetReply__isset __isset;
 
-  void __set_status(const ErrorCode::type val);
+  void __set_code(const ErrorCode::type val);
 
   void __set_value(const std::string& val);
 
+  void __set_status(const ShardStatus::type val);
+
   bool operator == (const GetReply & rhs) const
   {
-    if (!(status == rhs.status))
+    if (!(code == rhs.code))
       return false;
     if (!(value == rhs.value))
+      return false;
+    if (!(status == rhs.status))
       return false;
     return true;
   }

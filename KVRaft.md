@@ -60,7 +60,7 @@ void KVRaft::putAppend(PutAppendReply& _return, const PutAppendParams& params)
     raft_->start(sr, command);                     // 请求raft集群同步日志
 
     if (!sr.isLeader) {
-        _return.status = ErrorCode::ERR_WRONG_LEADER;     // 非Leader节点会拒绝处理请求
+        _return.code = ErrorCode::ERR_WRONG_LEADER;     // 非Leader节点会拒绝处理请求
         return;
     }
 

@@ -50,20 +50,20 @@ public:
 
     void copyTo(LeaveArgs& args)
     {
-        LOG_IF(FATAL, op_ != ShardCtrlerOP::MOVE) << "Expected JOIN, got " << op2str(op_);
+        LOG_IF(FATAL, op_ != ShardCtrlerOP::LEAVE) << "Expected LEAVE, got " << op2str(op_);
         args = leave_;
     }
 
     void copyTo(MoveArgs& args)
     {
 
-        LOG_IF(FATAL, op_ != ShardCtrlerOP::MOVE) << "Expected JOIN, got " << op2str(op_);
+        LOG_IF(FATAL, op_ != ShardCtrlerOP::MOVE) << "Expected MOVE, got " << op2str(op_);
         args = move_;
     }
 
     void copyTo(QueryArgs& args)
     {
-        LOG_IF(FATAL, op_ != ShardCtrlerOP::QUERY) << "Expected JOIN, got " << op2str(op_);
+        LOG_IF(FATAL, op_ != ShardCtrlerOP::QUERY) << "Expected QUERY, got " << op2str(op_);
         args = query_;
     }
 

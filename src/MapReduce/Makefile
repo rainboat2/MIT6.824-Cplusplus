@@ -2,7 +2,7 @@
 
 ROOTDIR = ../..
 
-LIBS   := $(LIBS) -lmr-rpc -lkvraft-rpc -ldl
+LIBS   := -lmr-rpc -lkvraft-rpc -ldl $(LIBS) 
 
 all: $(BIN)/master $(BIN)/worker $(BIN)/WordCount.so
 
