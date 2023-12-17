@@ -5,18 +5,21 @@ LIBS := $(LIBS) -lgtest -lgtest_main -lraft -lkvraft-rpc -pthread
 
 DEPENDENCIES = $(LIB_DIR)/libraft.a $(LIB_DIR)/libkvraft-rpc.a
 
-all: make-raft $(BIN)/test_raft
+all: make-raft $(BIN)/test_raft $(BIN)/unit_test
 
 $(BIN)/%: %.cpp $(DEPENDENCIES) RaftProcess.hpp
 	$(CC) $< $(CPPFLAGS) $(LIBS) $(LDFLAGS) $(INC) -o $@
 
-.PHONY: clean run-test make-raft clean-log-port
+.PHONY: clean run-test make-raft clean-log-port run-unit-test
 clean: clean-log-port
-	rm $(BIN)/test_raft
+	rm $(BIN)/test_raft $(BIN)/unit_test
 	make -C $(SRC_DIR)/raft clean
 
 run-test: make-raft $(BIN)/test_raft
 	$(BIN)/test_raft $(cmd_args)
+
+run-unit-test: make-raft $(BIN)/unit_test
+	$(BIN)/unit_test $(cmd_args)
 
 make-raft:
 	make -C $(SRC_DIR)/rpc

@@ -19,6 +19,8 @@ class RaftHandler : virtual public RaftIf {
 public:
     RaftHandler(std::vector<Host>& peers, Host me, std::string persisterDir, StateMachineIf* stateMachine, GID gid = 0);
 
+    ~RaftHandler();
+
     void requestVote(RequestVoteResult& _return, const RequestVoteParams& params) override;
 
     void appendEntries(AppendEntriesResult& _return, const AppendEntriesParams& params) override;
@@ -114,6 +116,8 @@ private:
     TermId snapshotTerm_;
 
     GID gid_; // the group id of raft, designed for multiraft
+
+    std::atomic<bool> isExit_;   // When this object is destroyed, it is marked with the variable isExit
 };
 
 #endif

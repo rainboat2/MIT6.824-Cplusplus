@@ -536,7 +536,7 @@ TEST_F(RaftTest, TestPersistIndependently2C)
         Persister persister(logDir_);
         persister.loadRaftState(term, votedFor, logs, lastIncTerm, lastIncIndex);
 
-        for (int i = 1; i < 50; i++) {
+        for (int i = 1; i <= 50; i++) {
             LogEntry log;
             log.command = longPrefix + uniqueCmd();
             log.index = (logs.empty() ? 1 : logs.back().index + 1);

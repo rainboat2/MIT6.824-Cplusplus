@@ -56,6 +56,7 @@ RaftHandler::RaftHandler(vector<Host>& peers, Host me, string persisterDir, Stat
     , snapshotIndex_(0)
     , snapshotTerm_(0)
     , gid_(gid)
+    , isExit_(false)
 {
     switchToFollow();
 
@@ -81,9 +82,26 @@ RaftHandler::RaftHandler(vector<Host>& peers, Host me, string persisterDir, Stat
         currentTerm_, to_string(votedFor_), logsRange(logs_));
 }
 
+RaftHandler::~RaftHandler()
+{
+    Timer t ("Start to exit!", "Exit successfully!");
+    isExit_ = true;
+    sendEntries_.notify_all();
+    applyLogs_.notify_all();
+    startSnapshot_.notify_all();
+    // wait for other threads exit
+    std::this_thread::sleep_for(MAX_ELECTION_TIMEOUT);
+}
+
 void RaftHandler::requestVote(RequestVoteResult& _return, const RequestVoteParams& params)
 {
     std::lock_guard<std::mutex> guard(raftLock_);
+    _return.voteGranted = false;
+
+    if (isExit_) {
+        _return.term = currentTerm_;
+        return;   // Raft already exited, reject all requests.
+    }
 
     if (params.term > currentTerm_) {
         if (state_ != ServerState::FOLLOWER)
@@ -97,7 +115,6 @@ void RaftHandler::requestVote(RequestVoteResult& _return, const RequestVoteParam
         LOG(INFO) << fmt::format("Out of fashion vote request from {}, term: {}, currentTerm: {}",
             to_string(params.candidateId), params.term, currentTerm_);
         _return.term = currentTerm_;
-        _return.voteGranted = false;
         return;
     }
 
@@ -105,7 +122,6 @@ void RaftHandler::requestVote(RequestVoteResult& _return, const RequestVoteParam
         LOG(INFO) << fmt::format("Receive a vote request from {}, but already voted to {}, reject it.",
             to_string(params.candidateId), to_string(votedFor_));
         _return.term = currentTerm_;
-        _return.voteGranted = false;
         return;
     }
 
@@ -130,6 +146,10 @@ void RaftHandler::appendEntries(AppendEntriesResult& _return, const AppendEntrie
 
     _return.success = false;
     _return.term = currentTerm_;
+
+    if (isExit_) {
+        return;   // Raft already exited, reject all requests.
+    }
 
     if (params.term < currentTerm_) {
         LOG(INFO) << fmt::format("Out of fashion appendEntries from {}, term: {}, currentTerm: {}",
@@ -223,6 +243,11 @@ void RaftHandler::start(StartResult& _return, const std::string& command)
 {
     std::lock_guard<std::mutex> guard(raftLock_);
     _return.code = ErrorCode::SUCCEED;
+
+    if (isExit_) {
+        _return.code = ErrorCode::ERR_REQUEST_FAILD;
+        return;   // Raft already exited, reject all requests.
+    }
 
     if (state_ != ServerState::LEADER) {
         _return.isLeader = false;
@@ -487,6 +512,8 @@ bool RaftHandler::async_sendSnapshotTo(int peerIndex, Host host)
             break;
         }
         params.offset += bufSize;
+        if (isExit_)
+            return true; // Exit the loop if raft exited.
     }
 
     if (success) {
@@ -501,6 +528,8 @@ void RaftHandler::async_checkLeaderStatus() noexcept
 {
     while (true) {
         std::this_thread::sleep_for(getElectionTimeout());
+        if (isExit_)
+            return; // Exit the loop if raft exited.
         {
             std::lock_guard<std::mutex> guard(raftLock_);
             switch (state_) {
@@ -621,7 +650,7 @@ void RaftHandler::async_sendHeartBeats() noexcept
         peersForHB = peers_;
     }
 
-    while (true) {
+    while (!isExit_) {
         vector<AppendEntriesParams> paramsList(peersForHB.size());
         {
             std::lock_guard<std::mutex> guard(raftLock_);
@@ -654,10 +683,12 @@ void RaftHandler::async_replicateLogTo(int peerIndex, Host host) noexcept
     while (true) {
         {
             /*
-             * wait for RaftHandler::start function to notify
+             * wait for RaftHandler::start or destructor function to notify
              */
             std::unique_lock<std::mutex> logLock(raftLock_);
             sendEntries_.wait(logLock);
+            if (isExit_)
+                return; // Exit the loop if raft exited.
         }
 
         LOG(INFO) << "async_replicateLogTo to " << to_string(host) << " is notified";
@@ -693,6 +724,8 @@ void RaftHandler::async_replicateLogTo(int peerIndex, Host host) noexcept
             if (!success) {
                 std::this_thread::sleep_for(HEART_BEATS_INTERVAL);
             }
+            if (isExit_)
+                return; // Exit the loop if raft exited.
         }
     }
 }
@@ -705,6 +738,8 @@ void RaftHandler::async_applyMsg() noexcept
             std::unique_lock<std::mutex> lockLock(raftLock_);
             applyLogs_.wait(lockLock);
             LOG(INFO) << "async_applyMsg is notified";
+            if (isExit_)
+                return; // Exit the loop if raft exited.
         }
 
         while (true) {
@@ -736,6 +771,8 @@ void RaftHandler::async_applyMsg() noexcept
                 std::lock_guard<std::mutex> guard(raftLock_);
                 lastApplied_ += N;
             }
+            if (isExit_)
+                return; // Exit the loop if raft exited.
         }
     }
 }
@@ -746,6 +783,8 @@ void RaftHandler::async_startSnapShot() noexcept
         {
             std::unique_lock<std::mutex> lock_(raftLock_);
             startSnapshot_.wait(lock_);
+            if (isExit_)
+                return; // Exit the loop if raft exited.
         }
 
         bool expected = false;
@@ -767,5 +806,7 @@ void RaftHandler::async_startSnapShot() noexcept
         };
 
         stateMachine_->startSnapShot(tmpSnapshotFile, callback);
+        if (isExit_)
+            return; // Exit the loop if raft exited.
     }
 }

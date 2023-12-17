@@ -3,7 +3,7 @@ import os
 import re
 
 curDir = os.getcwd()
-logDir = f'{curDir}/../logs/BasicTest4A'
+logDir = f'{curDir}/../logs/TestBasicAgree2B'
 RAFT_NUM = 3
 
 def log_list(path):
@@ -19,9 +19,9 @@ def log_list(path):
 
 log_objs = {}
 for i in range(1, RAFT_NUM + 1):
-    key = f'shardkv{i}'
+    key = f'raft{i}'
     log_objs[key] = log_list(f'{logDir}/{key}')
-log_objs["test_shardkv"] = log_list(f'{logDir}/test_shardkv')
+# log_objs["raft"] = log_list(f'{logDir}/raft')
 
 
 # I20230711 00:37:41.649639 11342532 raft.cpp:104] Switch to follower!
