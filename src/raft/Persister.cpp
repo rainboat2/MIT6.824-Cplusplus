@@ -45,7 +45,7 @@ Persister::Persister(std::string dirPath)
 
 Persister::~Persister()
 {
-    // flushLogBuf();
+    flushLogBuf();
 }
 
 void Persister::saveTermAndVote(TermId term, Host& voteFor)
