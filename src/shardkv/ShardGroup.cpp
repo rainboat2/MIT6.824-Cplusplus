@@ -9,6 +9,7 @@ ShardGroup::ShardGroup(std::vector<Host>& peers, Host me, std::string persisterD
 
 void ShardGroup::pullShardParams(PullShardReply& _return, const PullShardParams& params)
 {
+    // TODO: 
 }
 
 void ShardGroup::putAppend(PutAppendReply& _return, const PutAppendParams& params)

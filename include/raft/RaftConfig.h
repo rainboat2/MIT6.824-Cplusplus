@@ -15,5 +15,6 @@ constexpr int MAX_LOGS_BEFORE_SNAPSHOT = 100;
 constexpr int HEART_BEATS_LOG_COUNT = 10;
 const Host NULL_HOST;
 const RaftState INVALID_RAFTSTATE;
+const TermId INVALID_TERM_ID = -1;
 
 #endif

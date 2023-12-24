@@ -30,7 +30,8 @@ struct ErrorCode {
     ERR_NO_SHARD = 4,
     ERR_INVALID_SHARD = 5,
     ERR_NO_SUCH_SHARD_CONFIG = 6,
-    ERR_NOT_SUPPORT_OPERATOR = 7
+    ERR_NOT_SUPPORT_OPERATOR = 7,
+    ERR_NO_SUCH_GROUP = 8
   };
 };
 
