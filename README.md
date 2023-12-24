@@ -10,9 +10,9 @@
 
 ### 实现思路
 
-1. [MapReduce](https://github.com/rainboat2/MIT6.824-Cplusplus/blob/main/MapReduce.md)
-2. [Raft](https://github.com/rainboat2/MIT6.824-Cplusplus/blob/main/Raft.md)
-3. [KVRaft](https://github.com/rainboat2/MIT6.824-Cplusplus/blob/main/KVRaft.md)
+1. [MapReduce](doc/MapReduce.md)
+2. [Raft](doc/Raft.md)
+3. [KVRaft](doc/KVRaft.md)
 
 ## 项目依赖
 
