@@ -36,7 +36,7 @@ private:
 inline void ShardKV::putAppend(PutAppendReply& _return, const PutAppendParams& params)
 {
     if (groups_.find(params.gid) == groups_.end()) {
-        _return.code == ErrorCode::ERR_NO_SUCH_GROUP;
+        _return.code = ErrorCode::ERR_NO_SUCH_GROUP;
         return;
     }
     groups_[params.gid].putAppend(_return, params);
@@ -45,7 +45,7 @@ inline void ShardKV::putAppend(PutAppendReply& _return, const PutAppendParams& p
 inline void ShardKV::get(GetReply& _return, const GetParams& params)
 {
     if (groups_.find(params.gid) == groups_.end()) {
-        _return.code == ErrorCode::ERR_NO_SUCH_GROUP;
+        _return.code = ErrorCode::ERR_NO_SUCH_GROUP;
         return;
     }
     groups_[params.gid].get(_return, params);
@@ -54,7 +54,7 @@ inline void ShardKV::get(GetReply& _return, const GetParams& params)
 inline void ShardKV::requestVote(RequestVoteResult& _return, const RequestVoteParams& params)
 {
     if (groups_.find(params.gid) == groups_.end()) {
-        _return.code == ErrorCode::ERR_NO_SUCH_GROUP;
+        _return.code = ErrorCode::ERR_NO_SUCH_GROUP;
         return;
     }
     groups_[params.gid].requestVote(_return, params);
@@ -63,7 +63,7 @@ inline void ShardKV::requestVote(RequestVoteResult& _return, const RequestVotePa
 inline void ShardKV::appendEntries(AppendEntriesResult& _return, const AppendEntriesParams& params)
 {
     if (groups_.find(params.gid) == groups_.end()) {
-        _return.code == ErrorCode::ERR_NO_SUCH_GROUP;
+        _return.code = ErrorCode::ERR_NO_SUCH_GROUP;
         return;
     }
     groups_[params.gid].appendEntries(_return, params);

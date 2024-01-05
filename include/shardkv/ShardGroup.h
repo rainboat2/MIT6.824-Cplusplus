@@ -1,6 +1,7 @@
 #ifndef SHARDGROUP_H
 #define SHARDGROUP_H
 
+#include <future>
 #include <memory>
 #include <mutex>
 #include <vector>
@@ -11,23 +12,49 @@
 #include <rpc/kvraft/ShardKVRaft.h>
 #include <shardkv/KVArgs.hpp>
 #include <shardkv/KVService.h>
+#include <shardkv/ShardReply.hpp>
 
-class ShardGroup : public virtual ShardKVRaftIf,
-                   public virtual StateMachineIf {
+/*
+ * manage shards and handle kv requests
+ */
+class ShardManger : public virtual StateMachineIf {
 private:
     struct Shard {
         KVService kv;
         ShardStatus::type status;
     };
 
-    struct Reply {
-        ErrorCode::type code;
-        ShardStatus::type status;
-        std::string value;
-    };
-
 public:
-    ShardGroup(std::vector<Host>& peers, Host me, std::string persisterDir, StateMachineIf* stateMachine, GID gid);
+    ShardManger() = default;
+
+    /*
+     * method for StateMachineIf
+     */
+    void apply(ApplyMsg msg) override;
+    void startSnapShot(std::string filePath, std::function<void(LogId, TermId)> callback) override;
+    void applySnapShot(std::string filePath) override;
+
+    std::future<ShardReply>&& getFuture(LogId id);
+
+private:
+    void handlePutAppend(PutAppendReply& _return, const PutAppendParams& params);
+    void handleGet(GetReply& _return, const GetParams& params);
+    ErrorCode::type checkShard(ShardId sid, ErrorCode::type& code, ShardStatus::type& status);
+
+private:
+    std::unordered_map<ShardId, Shard> shards_;
+    std::unordered_map<LogId, std::promise<ShardReply>> waits_;
+    std::mutex lock_;
+};
+
+/*
+ * handle and redirect raft requests
+ */
+class ShardGroup : public virtual ShardKVRaftIf {
+public:
+    ShardGroup() = default;
+    ShardGroup(std::vector<Host>& peers, Host me, std::string persisterDir, GID gid);
+    ShardGroup(const ShardGroup& g) = delete;
 
     /*
      * methods for shardkv
@@ -50,42 +77,38 @@ public:
     TermId installSnapshot(const InstallSnapshotParams& params) override;
 
 private:
-    ErrorCode::type checkShard(ShardId sid, ErrorCode::type& code, ShardStatus::type& status);
-    void handlePutAppend(PutAppendReply& _return, const PutAppendParams& params);
-    void handleGet(GetReply& _return, const GetParams& params);
-    Reply sendArgsToRaft(const KVArgs& args);
+    ShardReply sendArgsToRaft(const KVArgs& args);
 
 private:
-    RaftHandler raft_;
+    std::unique_ptr<RaftHandler> raft_;
     std::mutex lock_;
-    std::unordered_map<ShardId, Shard> shards_;
-    std::unordered_map<LogId, std::promise<Reply>> waits_;
+    ShardManger shardManger_;
 };
 
 inline void ShardGroup::requestVote(RequestVoteResult& _return, const RequestVoteParams& params)
 {
-    raft_.requestVote(_return, params);
+    raft_->requestVote(_return, params);
 }
 
 inline void ShardGroup::appendEntries(AppendEntriesResult& _return, const AppendEntriesParams& params)
 {
-    raft_.appendEntries(_return, params);
+    raft_->appendEntries(_return, params);
 }
 
 inline void ShardGroup::getState(RaftState& _return)
 {
-    raft_.getState(_return);
+    raft_->getState(_return);
 }
 
 inline void ShardGroup::start(StartResult& _return, const std::string& command)
 {
-    LOG(ERROR) << "ShardGroup::start do not support RPC invoke!";
+    LOG(ERROR) << "Disable RPC invoke for ShardGroup::start!";
     _return.code = ErrorCode::ERR_REQUEST_FAILD;
 }
 
 inline TermId ShardGroup::installSnapshot(const InstallSnapshotParams& params)
 {
-    return raft_.installSnapshot(params);
+    return raft_->installSnapshot(params);
 }
 
 #endif

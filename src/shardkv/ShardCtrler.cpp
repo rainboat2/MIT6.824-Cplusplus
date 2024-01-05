@@ -20,7 +20,7 @@ struct GInfo {
     {
     }
 
-    bool operator<(const GInfo& g)
+    bool operator<(const GInfo& g) const
     {
         return shardCnt < g.shardCnt;
     }
@@ -41,7 +41,7 @@ static std::ostream& operator<<(std::ostream& out, const GInfo& info)
 }
 
 ShardCtrler::ShardCtrler(std::vector<Host> peers, Host me, std::string persisterDir, int shards)
-    : raft_(std::make_shared<RaftHandler>(peers, me, persisterDir, this))
+    : raft_(std::make_unique<RaftHandler>(peers, me, persisterDir, this))
     , lastApplyIndex_(0)
     , lastApplyTerm_(0)
 {

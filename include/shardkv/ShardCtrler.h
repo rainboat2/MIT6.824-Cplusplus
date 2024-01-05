@@ -94,7 +94,7 @@ private:
 
 private:
     std::vector<Config> configs_;
-    std::shared_ptr<RaftHandler> raft_;
+    std::unique_ptr<RaftHandler> raft_;
     std::mutex lock_;
     std::unordered_map<LogId, std::promise<Reply>> waits_;
     std::unordered_map<GID, std::vector<Host>> groupHosts_;

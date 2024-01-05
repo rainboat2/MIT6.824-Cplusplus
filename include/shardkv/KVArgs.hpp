@@ -7,12 +7,12 @@
 
 #include <rpc/kvraft/KVRaft_types.h>
 
-enum KVArgsOP {
+enum class KVArgsOP {
     PUT = 0,
-    GET
+    GET,
 };
 
-inline constexpr char* opStr(KVArgsOP op)
+inline constexpr const char* opStr(KVArgsOP op)
 {
     switch (op) {
     case KVArgsOP::PUT:
@@ -20,7 +20,7 @@ inline constexpr char* opStr(KVArgsOP op)
     case KVArgsOP::GET:
         return "GET";
     default:
-        LOG(FATAL) << "Unexpected op: " << op;
+        LOG(FATAL) << "Unexpected op: " << static_cast<int>(op);
     }
 }
 

@@ -105,7 +105,6 @@ struct PutAppendParams {
 
 struct PutAppendReply {
     1: ErrorCode code;
-    2: ShardStatus status;
 }
 
 struct GetParams {
@@ -117,7 +116,6 @@ struct GetParams {
 struct GetReply {
     1: ErrorCode code; 
     2: string value;
-    3: ShardStatus status;
 }
 
 struct InstallSnapshotParams {
