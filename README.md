@@ -13,6 +13,7 @@
 1. [MapReduce](doc/MapReduce.md)
 2. [Raft](doc/Raft.md)
 3. [KVRaft](doc/KVRaft.md)
+4. [ShardKV](doc/ShardKV.md)
 
 ## 项目依赖
 
