@@ -50,6 +50,9 @@ docker run -dit -v ~/Documents/MIT6.824:/root/MIT6.824 --name mit-build 10496961
 docker exec -it mit-build bash
 ```
 
+### Windows
+建议用wsl2或者docker，在Linux环境下运行此项目。
+
 ## 构建项目
 
 本项目使用`make`来作为构建构建，下面分别给出了每个部分的编译

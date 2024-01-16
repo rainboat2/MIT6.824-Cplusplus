@@ -5,35 +5,40 @@
 #include <rpc/kvraft/ShardKVRaft.h>
 
 enum class ShardReplyOP {
-    PUT = 0,
+    INVALID = 0,
+    PUT,
     GET,
 };
 
 class ShardReply {
-private:
-    ShardReply() = default;
-
 public:
-    explicit ShardReply(const GetReply& get)
+    ShardReply()
+        : op_(ShardReplyOP::INVALID)
     {
-        op_ = ShardReplyOP::GET;
-        code_ = get.code;
-        value_ = get.value;
+    }
+
+    explicit ShardReply(const GetReply& get)
+        : op_(ShardReplyOP::GET)
+        , code_(get.code)
+        , value_(get.value)
+    {
     }
 
     explicit ShardReply(const PutAppendReply& put)
+        : op_(ShardReplyOP::PUT)
+        , code_(put.code)
     {
-        op_ = ShardReplyOP::PUT;
-        code_ = put.code;
     }
 
-    void copyTo(GetReply& get) {
+    void copyTo(GetReply& get)
+    {
         LOG_IF(FATAL, op_ != ShardReplyOP::GET) << "Expect GET, got " << static_cast<int>(op_);
         get.code = code_;
         get.value = value_;
     }
 
-    void copyTo(PutAppendReply& put) {
+    void copyTo(PutAppendReply& put)
+    {
         LOG_IF(FATAL, op_ != ShardReplyOP::PUT) << "Expect PUT, got " << static_cast<int>(op_);
         put.code = code_;
     }

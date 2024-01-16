@@ -8,7 +8,7 @@
 
 class KVService {
 public:
-    KVService(ShardId sid_);
+    explicit KVService(ShardId sid_);
 
     PutAppendReply putAppend(const PutAppendParams& params);
 

@@ -22,6 +22,12 @@ private:
     struct Shard {
         KVService kv;
         ShardStatus::type status;
+
+        Shard()
+            : kv(KVService(-1))
+            , status(ShardStatus::STOP)
+        {
+        }
     };
 
 public:
@@ -34,12 +40,12 @@ public:
     void startSnapShot(std::string filePath, std::function<void(LogId, TermId)> callback) override;
     void applySnapShot(std::string filePath) override;
 
-    std::future<ShardReply>&& getFuture(LogId id);
+    std::future<ShardReply> getFuture(LogId id);
 
 private:
     void handlePutAppend(PutAppendReply& _return, const PutAppendParams& params);
     void handleGet(GetReply& _return, const GetParams& params);
-    ErrorCode::type checkShard(ShardId sid, ErrorCode::type& code, ShardStatus::type& status);
+    ErrorCode::type checkShard(ShardId sid, ErrorCode::type& code);
 
 private:
     std::unordered_map<ShardId, Shard> shards_;
@@ -77,7 +83,7 @@ public:
     TermId installSnapshot(const InstallSnapshotParams& params) override;
 
 private:
-    ShardReply sendArgsToRaft(const KVArgs& args);
+    bool sendArgsToRaft(std::future<ShardReply>& f, const KVArgs& args);
 
 private:
     std::unique_ptr<RaftHandler> raft_;

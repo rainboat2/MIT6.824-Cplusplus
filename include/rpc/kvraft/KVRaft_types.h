@@ -31,7 +31,9 @@ struct ErrorCode {
     ERR_INVALID_SHARD = 5,
     ERR_NO_SUCH_SHARD_CONFIG = 6,
     ERR_NOT_SUPPORT_OPERATOR = 7,
-    ERR_NO_SUCH_GROUP = 8
+    ERR_NO_SUCH_GROUP = 8,
+    ERR_SHARD_MIGRATING = 9,
+    ERR_SHARD_STOP = 10
   };
 };
 
@@ -751,9 +753,8 @@ void swap(PutAppendParams &a, PutAppendParams &b);
 std::ostream& operator<<(std::ostream& out, const PutAppendParams& obj);
 
 typedef struct _PutAppendReply__isset {
-  _PutAppendReply__isset() : code(false), status(false) {}
+  _PutAppendReply__isset() : code(false) {}
   bool code :1;
-  bool status :1;
 } _PutAppendReply__isset;
 
 class PutAppendReply : public virtual ::apache::thrift::TBase {
@@ -762,8 +763,7 @@ class PutAppendReply : public virtual ::apache::thrift::TBase {
   PutAppendReply(const PutAppendReply&) noexcept;
   PutAppendReply& operator=(const PutAppendReply&) noexcept;
   PutAppendReply() noexcept
-                 : code(static_cast<ErrorCode::type>(0)),
-                   status(static_cast<ShardStatus::type>(0)) {
+                 : code(static_cast<ErrorCode::type>(0)) {
   }
 
   virtual ~PutAppendReply() noexcept;
@@ -772,23 +772,14 @@ class PutAppendReply : public virtual ::apache::thrift::TBase {
    * @see ErrorCode
    */
   ErrorCode::type code;
-  /**
-   * 
-   * @see ShardStatus
-   */
-  ShardStatus::type status;
 
   _PutAppendReply__isset __isset;
 
   void __set_code(const ErrorCode::type val);
 
-  void __set_status(const ShardStatus::type val);
-
   bool operator == (const PutAppendReply & rhs) const
   {
     if (!(code == rhs.code))
-      return false;
-    if (!(status == rhs.status))
       return false;
     return true;
   }
@@ -866,10 +857,9 @@ void swap(GetParams &a, GetParams &b);
 std::ostream& operator<<(std::ostream& out, const GetParams& obj);
 
 typedef struct _GetReply__isset {
-  _GetReply__isset() : code(false), value(false), status(false) {}
+  _GetReply__isset() : code(false), value(false) {}
   bool code :1;
   bool value :1;
-  bool status :1;
 } _GetReply__isset;
 
 class GetReply : public virtual ::apache::thrift::TBase {
@@ -879,8 +869,7 @@ class GetReply : public virtual ::apache::thrift::TBase {
   GetReply& operator=(const GetReply&);
   GetReply() noexcept
            : code(static_cast<ErrorCode::type>(0)),
-             value(),
-             status(static_cast<ShardStatus::type>(0)) {
+             value() {
   }
 
   virtual ~GetReply() noexcept;
@@ -890,11 +879,6 @@ class GetReply : public virtual ::apache::thrift::TBase {
    */
   ErrorCode::type code;
   std::string value;
-  /**
-   * 
-   * @see ShardStatus
-   */
-  ShardStatus::type status;
 
   _GetReply__isset __isset;
 
@@ -902,15 +886,11 @@ class GetReply : public virtual ::apache::thrift::TBase {
 
   void __set_value(const std::string& val);
 
-  void __set_status(const ShardStatus::type val);
-
   bool operator == (const GetReply & rhs) const
   {
     if (!(code == rhs.code))
       return false;
     if (!(value == rhs.value))
-      return false;
-    if (!(status == rhs.status))
       return false;
     return true;
   }
