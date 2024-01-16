@@ -91,6 +91,16 @@ protected:
         google::ShutdownGoogleLogging();
     }
 
+    Config getConfig(int configNum, ShardctrlerClerk& clerk) {
+        QueryReply qrep;
+        QueryArgs args;
+        args.configNum = LATEST_CONFIG_NUM;
+        clerk.query(qrep, args);
+        EXPECT_EQ(qrep.code, ErrorCode::SUCCEED);
+        Config config = qrep.config;
+        return config;
+    }
+
 protected:
     vector<int> ports_;
     string logDir_;
@@ -110,12 +120,7 @@ TEST_F(ShardCtrlerTest, BasicTest4A)
     ShardctrlerClerk clerk(hosts_);
 
     {
-        QueryReply qrep;
-        QueryArgs args;
-        args.configNum = LATEST_CONFIG_NUM;
-        clerk.query(qrep, args);
-        EXPECT_EQ(qrep.code, ErrorCode::SUCCEED);
-        Config config = qrep.config;
+        Config config = getConfig(LATEST_CONFIG_NUM, clerk);
         EXPECT_EQ(config.gid2shards.size(), 0);
         for (GID gid : config.shard2gid) {
             EXPECT_EQ(gid, -1);
@@ -131,12 +136,7 @@ TEST_F(ShardCtrlerTest, BasicTest4A)
     }
 
     {
-        QueryReply qrep;
-        QueryArgs args;
-        args.configNum = LATEST_CONFIG_NUM;
-        clerk.query(qrep, args);
-        EXPECT_EQ(qrep.code, ErrorCode::SUCCEED);
-        Config config = qrep.config;
+        Config config = getConfig(LATEST_CONFIG_NUM, clerk);
         EXPECT_EQ(config.configNum, 1);
         EXPECT_EQ(config.gid2shards.size(), 1);
         for (GID gid : config.shard2gid) {
@@ -153,12 +153,7 @@ TEST_F(ShardCtrlerTest, BasicTest4A)
     }
 
     {
-        QueryReply qrep;
-        QueryArgs args;
-        args.configNum = LATEST_CONFIG_NUM;
-        clerk.query(qrep, args);
-        EXPECT_EQ(qrep.code, ErrorCode::SUCCEED);
-        Config config = qrep.config;
+        Config config = getConfig(LATEST_CONFIG_NUM, clerk);
         EXPECT_EQ(config.configNum, 2);
         EXPECT_EQ(config.gid2shards.size(), 2);
 
@@ -176,12 +171,7 @@ TEST_F(ShardCtrlerTest, BasicTest4A)
     }
 
     {
-        QueryReply qrep;
-        QueryArgs args;
-        args.configNum = LATEST_CONFIG_NUM;
-        clerk.query(qrep, args);
-        EXPECT_EQ(qrep.code, ErrorCode::SUCCEED);
-        Config config = qrep.config;
+        Config config = getConfig(LATEST_CONFIG_NUM, clerk);
         EXPECT_EQ(config.configNum, 3);
         EXPECT_EQ(config.gid2shards.size(), 1);
 
@@ -199,12 +189,7 @@ TEST_F(ShardCtrlerTest, BasicTest4A)
     }
 
     {
-        QueryReply qrep;
-        QueryArgs args;
-        args.configNum = LATEST_CONFIG_NUM;
-        clerk.query(qrep, args);
-        EXPECT_EQ(qrep.code, ErrorCode::SUCCEED);
-        Config config = qrep.config;
+        Config config = getConfig(LATEST_CONFIG_NUM, clerk);
         EXPECT_EQ(config.configNum, 4);
         EXPECT_EQ(config.gid2shards.size(), 0);
 
@@ -212,5 +197,9 @@ TEST_F(ShardCtrlerTest, BasicTest4A)
             EXPECT_EQ(gid, INVALID_GID);
         }
     }
+
+}
+
+TEST_F(ShardCtrlerTest, TestMulti4A) {
 
 }

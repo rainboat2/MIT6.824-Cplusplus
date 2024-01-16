@@ -16,6 +16,7 @@
 * ShardGroup，一个ShardGroup管理若干个Shard，主要负责转发KV请求，不同Group中的分片迁移以及通过raft协议维护分片服务的高可用
 * ShardKV，一般对应一台实体机器，用于统一管理分布在一台机器上的所有ShardGroup
 
+
 ## KV操作流程
 
 1. 用户发起请求

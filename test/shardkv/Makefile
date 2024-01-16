@@ -1,7 +1,7 @@
 include ../../Global.mk
 
 ROOTDIR = ../..
-LIBS   := -lshardkvraft -lraft -lkvraft -lkvraft-rpc -lgtest -lgtest_main -lpthread $(LIBS) 
+LIBS   := -lshardkvraft -lraft -lkvraft -lkvraft-rpc -lgtest -lgtest_main $(LIBS) 
 
 DEPENDENCIES = $(LIB_DIR)/libraft.a $(LIB_DIR)/libkvraft-rpc.a $(LIB_DIR)/libkvraft.a $(LIB_DIR)/libshardkvraft.a
 
