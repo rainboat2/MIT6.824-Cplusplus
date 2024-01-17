@@ -1341,10 +1341,11 @@ void swap(QueryArgs &a, QueryArgs &b);
 std::ostream& operator<<(std::ostream& out, const QueryArgs& obj);
 
 typedef struct _Config__isset {
-  _Config__isset() : configNum(false), shard2gid(false), gid2shards(false) {}
+  _Config__isset() : configNum(false), shard2gid(false), gid2shards(false), groupHosts(false) {}
   bool configNum :1;
   bool shard2gid :1;
   bool gid2shards :1;
+  bool groupHosts :1;
 } _Config__isset;
 
 class Config : public virtual ::apache::thrift::TBase {
@@ -1360,6 +1361,7 @@ class Config : public virtual ::apache::thrift::TBase {
   int32_t configNum;
   std::vector<GID>  shard2gid;
   std::map<GID, std::set<ShardId> >  gid2shards;
+  std::map<GID, std::vector<Host> >  groupHosts;
 
   _Config__isset __isset;
 
@@ -1369,6 +1371,8 @@ class Config : public virtual ::apache::thrift::TBase {
 
   void __set_gid2shards(const std::map<GID, std::set<ShardId> > & val);
 
+  void __set_groupHosts(const std::map<GID, std::vector<Host> > & val);
+
   bool operator == (const Config & rhs) const
   {
     if (!(configNum == rhs.configNum))
@@ -1376,6 +1380,8 @@ class Config : public virtual ::apache::thrift::TBase {
     if (!(shard2gid == rhs.shard2gid))
       return false;
     if (!(gid2shards == rhs.gid2shards))
+      return false;
+    if (!(groupHosts == rhs.groupHosts))
       return false;
     return true;
   }

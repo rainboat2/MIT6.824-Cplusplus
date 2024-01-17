@@ -168,6 +168,7 @@ struct Config {
     1: i32 configNum;
     2: list<GID> shard2gid;
     3: map<GID, set<ShardId>> gid2shards;
+    4: map<GID, list<Host>> groupHosts;
 }
 
 struct QueryReply {

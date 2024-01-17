@@ -150,7 +150,9 @@ ShardCtrler::Reply ShardCtrler::handleJoin(const JoinArgs& join, const ApplyMsg&
 
     bool noGroup = gid2shards.empty();
     for (auto& it : join.servers) {
-        newConfig.gid2shards[it.first] = std::set<ShardId>();
+        GID gid = it.first;
+        newConfig.gid2shards[gid] = std::set<ShardId>();
+        newConfig.groupHosts[gid] = it.second;
     }
 
     // add all shared to the new group if there is no group exist
@@ -218,6 +220,7 @@ ShardCtrler::Reply ShardCtrler::handleLeave(const LeaveArgs& leave, const ApplyM
 
     auto& gid2shards = newConfig.gid2shards;
     auto& shard2gid = newConfig.shard2gid;
+    auto& groupHosts = newConfig.groupHosts;
 
     std::unordered_set<ShardId> shards;
     for (GID gid : leave.gids) {
@@ -225,6 +228,7 @@ ShardCtrler::Reply ShardCtrler::handleLeave(const LeaveArgs& leave, const ApplyM
             shards.insert(id);
         }
         gid2shards.erase(gid);
+        groupHosts.erase(gid);
     }
 
     if (gid2shards.empty()) {

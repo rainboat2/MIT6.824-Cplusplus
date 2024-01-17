@@ -1,9 +1,11 @@
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <memory>
 #include <string>
 #include <thread>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include <fmt/format.h>
@@ -20,6 +22,7 @@
 using std::array;
 using std::string;
 using std::unordered_map;
+using std::unordered_set;
 using std::vector;
 
 class ShardCtrlerTest : public testing::Test {
@@ -53,7 +56,7 @@ protected:
             auto peers = hosts_;
             Host me = hosts_[i];
             peers.erase(peers.begin() + i);
-            string dirName = fmt::format("{}/shardkv{}", logDir_, i + 1);
+            string dirName = fmt::format("{}/ShardCtrler{}", logDir_, i + 1);
             mkdir(dirName.c_str(), S_IRWXU);
 
             using apache::thrift::TProcessor;
@@ -91,7 +94,8 @@ protected:
         google::ShutdownGoogleLogging();
     }
 
-    Config getConfig(int configNum, ShardctrlerClerk& clerk) {
+    Config getConfig(int configNum, ShardctrlerClerk& clerk)
+    {
         QueryReply qrep;
         QueryArgs args;
         args.configNum = LATEST_CONFIG_NUM;
@@ -99,6 +103,36 @@ protected:
         EXPECT_EQ(qrep.code, ErrorCode::SUCCEED);
         Config config = qrep.config;
         return config;
+    }
+
+    void check(unordered_map<GID, vector<Host>>& groups, ShardctrlerClerk& clerk)
+    {
+        auto config = getConfig(LATEST_CONFIG_NUM, clerk);
+        EXPECT_EQ(groups.size(), config.groupHosts.size());
+
+        for (auto it : groups) {
+            GID gid = it.first;
+            auto& hosts = it.second;
+            auto& chosts = config.groupHosts[gid];
+            EXPECT_EQ(hosts.size(), chosts.size());
+            for (int i = 0; i < hosts.size(); i++) {
+                EXPECT_EQ(hosts[i].ip, chosts[i].ip);
+                EXPECT_EQ(hosts[i].port, chosts[i].port);
+            }
+        }
+
+        for (GID gid : config.shard2gid) {
+            EXPECT_NE(gid, INVALID_GID);
+        }
+
+        int maxS = -1, minS = INT_MAX;
+        for (auto it : config.gid2shards) {
+            auto& shards = it.second;
+            int shardSize = static_cast<int>(shards.size());
+            maxS = std::max(maxS, shardSize);
+            minS = std::min(minS, shardSize);
+        }
+        EXPECT_LE(maxS - minS, 1);
     }
 
 protected:
@@ -157,7 +191,7 @@ TEST_F(ShardCtrlerTest, BasicTest4A)
         EXPECT_EQ(config.configNum, 2);
         EXPECT_EQ(config.gid2shards.size(), 2);
 
-        for (GID gid : config.shard2gid){
+        for (GID gid : config.shard2gid) {
             EXPECT_TRUE(gid == 1 || gid == 0);
         }
     }
@@ -165,7 +199,7 @@ TEST_F(ShardCtrlerTest, BasicTest4A)
     {
         LeaveReply lrep;
         LeaveArgs leave;
-        leave.gids = {1};
+        leave.gids = { 1 };
         clerk.leave(lrep, leave);
         EXPECT_EQ(lrep.code, ErrorCode::SUCCEED);
     }
@@ -175,7 +209,7 @@ TEST_F(ShardCtrlerTest, BasicTest4A)
         EXPECT_EQ(config.configNum, 3);
         EXPECT_EQ(config.gid2shards.size(), 1);
 
-        for (GID gid : config.shard2gid){
+        for (GID gid : config.shard2gid) {
             EXPECT_EQ(gid, 0);
         }
     }
@@ -183,7 +217,7 @@ TEST_F(ShardCtrlerTest, BasicTest4A)
     {
         LeaveReply lrep;
         LeaveArgs leave;
-        leave.gids = {0};
+        leave.gids = { 0 };
         clerk.leave(lrep, leave);
         EXPECT_EQ(lrep.code, ErrorCode::SUCCEED);
     }
@@ -193,13 +227,51 @@ TEST_F(ShardCtrlerTest, BasicTest4A)
         EXPECT_EQ(config.configNum, 4);
         EXPECT_EQ(config.gid2shards.size(), 0);
 
-        for (GID gid : config.shard2gid){
+        for (GID gid : config.shard2gid) {
             EXPECT_EQ(gid, INVALID_GID);
         }
     }
-
 }
 
-TEST_F(ShardCtrlerTest, TestMulti4A) {
+TEST_F(ShardCtrlerTest, TestMulti4A)
+{
+    const int CTRL_NUM = 3, CLERK_NUM = 10;
+    initCtrlers(CTRL_NUM);
 
+    auto createHost = [](string ip, int port) -> Host {
+        Host host;
+        host.ip = std::move(ip);
+        host.port = port;
+        return host;
+    };
+
+    unordered_map<GID, vector<Host>> groups;
+    vector<std::thread> threads(10);
+    for (int i = 0; i < CLERK_NUM; i++) {
+        groups[i] = {createHost(fmt::format("ip{}", i), 8000 + i)};
+
+        threads[i] = std::thread([this, i, createHost]() {
+            auto clerk = ShardctrlerClerk(hosts_);
+            JoinArgs jargs;
+            JoinReply jrep;
+            jargs.servers = {
+                { i, vector<Host> { createHost(fmt::format("ip{}", i), 8000 + i) } },
+                { i + 1000, vector<Host> { createHost(fmt::format("ip{}", i + 1000), 8000 + i) } },
+                { i + 2000, vector<Host> { createHost(fmt::format("ip{}", i + 2000), 8000 + i) } }
+            };
+            clerk.join(jrep, jargs);
+            EXPECT_EQ(jrep.code, ErrorCode::SUCCEED);
+            
+            LeaveReply lrep;
+            LeaveArgs largs;
+            largs.gids = {i + 1000, i + 2000};
+            clerk.leave(lrep, largs);
+        });
+    }
+
+    for (int i = 0; i < CLERK_NUM; i++) {
+        threads[i].join();
+    }
+    ShardctrlerClerk clerk(hosts_);
+    check(groups, clerk);
 }
