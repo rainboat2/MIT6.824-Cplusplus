@@ -91,6 +91,14 @@ ErrorCode::type ShardManger::checkShard(ShardId sid, ErrorCode::type& code)
     return code;
 }
 
+void ShardManger::startSnapShot(std::string filePath, std::function<void(LogId, TermId)> callback)  {
+    // TODO:
+}
+
+void ShardManger::applySnapShot(std::string filePath) {
+    // TODO:
+}
+
 void ShardGroup::pullShardParams(PullShardReply& _return, const PullShardParams& params)
 {
     // TODO:

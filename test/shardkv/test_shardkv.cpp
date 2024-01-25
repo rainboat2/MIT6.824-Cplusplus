@@ -14,8 +14,10 @@
 
 #include <raft/RaftConfig.h>
 #include <rpc/kvraft/KVRaft_types.h>
+#include <rpc/kvraft/ShardKVRaft.h>
 #include <shardkv/ShardCtrler.h>
 #include <shardkv/ShardCtrlerClerk.h>
+#include <shardkv/ShardKV.h>
 #include <thrift/TOutput.h>
 #include <tools/ProcessManager.hpp>
 
@@ -54,15 +56,15 @@ protected:
 
         for (int i = 0; i < num; i++) {
             auto peers = hosts_;
-            Host me = hosts_[i];
+            Host me;
             peers.erase(peers.begin() + i);
             string dirName = fmt::format("{}/ShardCtrler{}", logDir_, i + 1);
             mkdir(dirName.c_str(), S_IRWXU);
 
-            using apache::thrift::TProcessor;
-            ctrs_.emplace_back(peers, me, i + 1, dirName, [peers, me, dirName, this]() -> std::shared_ptr<TProcessor> {
+            using TProcessPtr = std::shared_ptr<apache::thrift::TProcessor>;
+            ctrs_.emplace_back(me, dirName, [peers, me, dirName, this]() -> TProcessPtr {
                 auto handler = std::make_shared<ShardCtrler>(peers, me, dirName, SHARD_NUM_);
-                std::shared_ptr<TProcessor> processor(new ShardCtrlerProcessor(handler));
+                TProcessPtr processor(new ShardCtrlerProcessor(handler));
                 return processor;
             });
         }
@@ -141,6 +143,82 @@ protected:
     string testLogDir_;
     vector<ProcessManager> ctrs_;
     vector<Host> hosts_;
+    int SHARD_NUM_ = 10;
+};
+
+class ShardKVTest : public testing::Test {
+protected:
+    void SetUp() override
+    {
+        ports_ = { 7001, 7002, 7003, 7004, 7005, 7006, 7007, 7008 };
+        logDir_ = fmt::format("../../logs/{}", testing::UnitTest::GetInstance()->current_test_info()->name());
+        mkdir(logDir_.c_str(), S_IRWXU);
+
+        FLAGS_log_dir = logDir_;
+        google::InitGoogleLogging(FLAGS_log_dir.c_str());
+        apache::thrift::GlobalOutput.setOutputFunction([](const char* msg) {
+            LOG(WARNING) << msg;
+        });
+    }
+
+    void TearDown() override
+    {
+        google::ShutdownGoogleLogging();
+    }
+
+    void initShardKV(int hostNum)
+    {
+        vector<Host> ctrlerHosts = initCtrlers(3);
+        for (int i = 0; i < hostNum; i++) {
+            Host me;
+            me.ip = "127.0.0.1";
+            me.port = ports_[i];
+            using TProcessPtr = std::shared_ptr<apache::thrift::TProcessor>;
+            kvs_.emplace_back(me, logDir_, [&ctrlerHosts]() -> TProcessPtr {
+                auto handler = std::make_shared<ShardKV>(ctrlerHosts);
+                TProcessPtr processor(new ShardKVRaftProcessor(handler));
+                return processor;
+            });
+        }
+    }
+
+private:
+    vector<Host> initCtrlers(int num)
+    {
+        ctrlHosts_ = vector<Host>(num);
+        for (uint i = 0; i < ctrlHosts_.size(); i++) {
+            ctrlHosts_[i].ip = "127.0.0.1";
+            ctrlHosts_[i].port = ports_[i] + 1000;
+        }
+
+        for (int i = 0; i < num; i++) {
+            auto peers = ctrlHosts_;
+            Host me;
+            peers.erase(peers.begin() + i);
+            string dirName = fmt::format("{}/ShardCtrler{}", logDir_, i + 1);
+            mkdir(dirName.c_str(), S_IRWXU);
+
+            using TProcessPtr = std::shared_ptr<apache::thrift::TProcessor>;
+            ctrls_.emplace_back(me, dirName, [peers, me, dirName, this]() -> TProcessPtr {
+                auto handler = std::make_shared<ShardCtrler>(peers, me, dirName, SHARD_NUM_);
+                TProcessPtr processor(new ShardCtrlerProcessor(handler));
+                return processor;
+            });
+        }
+
+        for (int i = 0; i < num; i++) {
+            ctrls_[i].start();
+        }
+        std::this_thread::sleep_for(MAX_ELECTION_TIMEOUT);
+        return ctrlHosts_;
+    }
+
+protected:
+    vector<int> ports_;
+    string logDir_;
+    vector<ProcessManager> ctrls_;
+    vector<Host> ctrlHosts_;
+    vector<ProcessManager> kvs_;
     int SHARD_NUM_ = 10;
 };
 
@@ -248,7 +326,7 @@ TEST_F(ShardCtrlerTest, TestMulti4A)
     unordered_map<GID, vector<Host>> groups;
     vector<std::thread> threads(10);
     for (int i = 0; i < CLERK_NUM; i++) {
-        groups[i] = {createHost(fmt::format("ip{}", i), 8000 + i)};
+        groups[i] = { createHost(fmt::format("ip{}", i), 8000 + i) };
 
         threads[i] = std::thread([this, i, createHost]() {
             auto clerk = ShardctrlerClerk(hosts_);
@@ -261,10 +339,10 @@ TEST_F(ShardCtrlerTest, TestMulti4A)
             };
             clerk.join(jrep, jargs);
             EXPECT_EQ(jrep.code, ErrorCode::SUCCEED);
-            
+
             LeaveReply lrep;
             LeaveArgs largs;
-            largs.gids = {i + 1000, i + 2000};
+            largs.gids = { i + 1000, i + 2000 };
             clerk.leave(lrep, largs);
         });
     }
@@ -274,4 +352,8 @@ TEST_F(ShardCtrlerTest, TestMulti4A)
     }
     ShardctrlerClerk clerk(hosts_);
     check(groups, clerk);
+}
+
+TEST_F(ShardKVTest, TestStaticShards4B)
+{
 }

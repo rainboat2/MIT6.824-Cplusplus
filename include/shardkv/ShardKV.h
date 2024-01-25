@@ -5,14 +5,14 @@
 
 #include <glog/logging.h>
 
-#include <rpc/kvraft/ShardKVRaft.h>
-#include <raft/StateMachine.h>
 #include <raft/RaftConfig.h>
+#include <raft/StateMachine.h>
+#include <rpc/kvraft/ShardKVRaft.h>
 #include <shardkv/ShardGroup.h>
 
-class ShardKV: ShardKVRaftIf {
+class ShardKV : virtual public ShardKVRaftIf {
 public:
-    ShardKV();
+    explicit ShardKV(std::vector<Host>& ctrlerHosts);
 
     /*
      * methods for KVRaftIf
@@ -29,8 +29,11 @@ public:
     void start(StartResult& _return, const std::string& command) override;
     TermId installSnapshot(const InstallSnapshotParams& params) override;
 
+    void pullShardParams(PullShardReply& reply, const PullShardParams& params) override;
+
 private:
     std::unordered_map<GID, ShardGroup> groups_;
+    std::vector<Host> ctrlerHosts_;
 };
 
 inline void ShardKV::putAppend(PutAppendReply& _return, const PutAppendParams& params)
@@ -74,12 +77,12 @@ inline void ShardKV::getState(RaftState& _return)
     LOG(FATAL) << "Unexpected to invoke this function!";
 }
 
-void ShardKV::start(StartResult& _return, const std::string& command)
+inline void ShardKV::start(StartResult& _return, const std::string& command)
 {
     LOG(FATAL) << "Unexpected to invoke this function!";
 }
 
-TermId ShardKV::installSnapshot(const InstallSnapshotParams& params)
+inline TermId ShardKV::installSnapshot(const InstallSnapshotParams& params)
 {
     if (groups_.find(params.gid) == groups_.end()) {
         return INVALID_TERM_ID;

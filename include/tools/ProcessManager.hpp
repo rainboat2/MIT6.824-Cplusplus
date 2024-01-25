@@ -17,12 +17,10 @@
 
 class ProcessManager {
 public:
-    ProcessManager(std::vector<Host>& peers, Host me, int id, std::string log_dir,
+    ProcessManager(Host me, std::string log_dir,
         std::function<std::shared_ptr<apache::thrift::TProcessor>()> processorCreator)
         : pid_(-1)
-        , peers_(peers)
         , me_(me)
-        , id_(id)
         , log_dir_(log_dir)
         , processorCreator_(processorCreator)
     {
@@ -30,7 +28,7 @@ public:
 
     ~ProcessManager()
     {
-        killRaft();
+        killProcess();
     }
 
     void start()
@@ -40,6 +38,7 @@ public:
         using namespace apache::thrift::transport;
         using namespace ::apache::thrift::server;
 
+        // avoid repeated calls
         if (pid_ > 0)
             return;
 
@@ -59,25 +58,22 @@ public:
 
             auto processor = processorCreator_();
             TThreadedServer server(processor, serverTransport, transportFactory, protocolFactory);
-            LOG(INFO) << "Start to listen on " << me_ << ", peers size: " << peers_.size();
             server.serve();
         }
     }
 
-    void killRaft()
+    void killProcess()
     {
         if (pid_ > 0) {
             kill(pid_, SIGKILL);
             wait(&pid_);
-            pid_ = -id_;
+            pid_ = -1;
         }
     }
 
 private:
     pid_t pid_;
-    std::vector<Host> peers_;
     Host me_;
-    int id_;
     std::string log_dir_;
     std::function<std::shared_ptr<apache::thrift::TProcessor>()> processorCreator_;
 };
