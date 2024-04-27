@@ -1,6 +1,8 @@
 #include <array>
 #include <atomic>
+#include <cerrno>
 #include <cstdlib>
+#include <cstring>
 #include <fstream>
 #include <random>
 #include <sstream>
@@ -9,6 +11,8 @@
 #include <thread>
 #include <vector>
 
+#include <fmt/format.h>
+#include <glog/logging.h>
 #include <gtest/gtest.h>
 #include <thrift/TOutput.h>
 #include <thrift/protocol/TBinaryProtocol.h>
@@ -29,24 +33,32 @@ using std::array;
 using std::string;
 using std::vector;
 
-static void outputErrmsg(const char* msg)
-{
-    static std::ofstream ofs("../../logs/test_raft/errmsg.txt", std::ios::app);
-    static std::mutex m;
-    std::lock_guard<std::mutex> guard(m);
-    ofs << msg << std::endl;
-}
-
 class RaftTest : public testing::Test {
 protected:
     void SetUp() override
     {
         logDir_ = fmt::format("../../logs/{}", testing::UnitTest::GetInstance()->current_test_info()->name());
-        mkdir(logDir_.c_str(), S_IRWXU);
+        testLogDir_ = fmt::format("{}/test_raft", logDir_);
+        if (mkdir(logDir_.c_str(), S_IRWXU)) {
+            LOG(WARNING) << fmt::format("mkdir \"{}\" faild: {}", logDir_, strerror(errno));
+        }
+        if (mkdir(testLogDir_.c_str(), S_IRWXU)) {
+            LOG(WARNING) << fmt::format("mkdir \"{}\" faild: {}", testLogDir_, strerror(errno));
+        }
+
         ports_ = { 7001, 7002, 7003, 7004, 7005, 7006, 7007, 7008 };
         cm_ = ClientManager<RaftClient>(ports_.size(), RPC_TIMEOUT);
 
-        GlobalOutput.setOutputFunction(outputErrmsg);
+        FLAGS_log_dir = testLogDir_;
+        google::InitGoogleLogging(testLogDir_.c_str());
+        apache::thrift::GlobalOutput.setOutputFunction([](const char* msg) {
+            LOG(WARNING) << msg;
+        });
+    }
+
+    void TearDown() override
+    {
+        google::ShutdownGoogleLogging();
     }
 
     void initRafts(const uint num)
@@ -64,7 +76,9 @@ protected:
             peers.erase(peers.begin() + i);
             string dirName = fmt::format("{}/raft{}", logDir_, i + 1);
             rafts_.emplace_back(peers, me, i + 1, dirName);
-            mkdir(dirName.c_str(), S_IRWXU);
+            if (mkdir(dirName.c_str(), S_IRWXU)) {
+                LOG(WARNING) << fmt::format("mkdir \"{}\" faild: {}", dirName, strerror(errno));
+            }
         }
 
         for (uint i = 0; i < num; i++) {
@@ -116,7 +130,7 @@ protected:
             client->start(rs, cmd);
         } catch (TException& tx) {
             cm_.setInvalid(raftId);
-            outputErrmsg(tx.what());
+            LOG(WARNING) << tx.what();
         }
         return rs;
     }
@@ -204,15 +218,10 @@ protected:
             client->getState(st);
         } catch (TException& tx) {
             st = INVALID_RAFTSTATE;
-            auto err = fmt::format("Get State of {} failed! {};", to_string(hosts_[i]), tx.what());
-            outputErrmsg(err.c_str());
+            LOG(WARNING) << fmt::format("Get State of {} failed! {};", to_string(hosts_[i]), tx.what());
             cm_.setInvalid(i);
         }
         return st;
-    }
-
-    void TearDown() override
-    {
     }
 
 protected:
@@ -220,6 +229,7 @@ protected:
     std::vector<int> ports_;
     std::vector<Host> hosts_;
     std::string logDir_;
+    std::string testLogDir_;
     ClientManager<RaftClient> cm_;
 };
 
@@ -480,7 +490,7 @@ TEST_F(RaftTest, TestConcurrentStarts2B)
                 } catch (TException& tx) {
                     man.setInvalid(leader);
                     string errmsg = fmt::format("invoke start failed: {}", tx.what());
-                    outputErrmsg(errmsg.c_str());
+                    LOG(WARNING) << errmsg;
                 }
             }
         });

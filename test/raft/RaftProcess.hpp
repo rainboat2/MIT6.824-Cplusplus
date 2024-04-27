@@ -64,6 +64,8 @@ public:
 
         pid_ = fork();
         if (pid_ == 0) {
+            if (google::IsGoogleLoggingInitialized())
+                google::ShutdownGoogleLogging();
             google::InitGoogleLogging(log_dir_.c_str());
             FLAGS_log_dir = log_dir_;
             FLAGS_logbuflevel = -1;

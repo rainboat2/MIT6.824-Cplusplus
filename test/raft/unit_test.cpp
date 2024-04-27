@@ -1,15 +1,15 @@
 #include <memory>
 #include <string>
-#include <vector>
-#include <sys/stat.h>
 #include <sys/errno.h>
+#include <sys/stat.h>
+#include <vector>
 
-#include <gtest/gtest.h>
 #include <fmt/format.h>
+#include <gtest/gtest.h>
 
-#include <raft/raft.h>
-#include <raft/RaftConfig.h>
 #include "RaftProcess.hpp"
+#include <raft/RaftConfig.h>
+#include <raft/raft.h>
 
 class RaftUnitTest : public testing::Test {
 
@@ -18,9 +18,13 @@ class RaftUnitTest : public testing::Test {
         me_.ip = "127.0.0.1";
         me_.port = 7001;
         persisterDir_ = fmt::format("../../logs/{}", testing::UnitTest::GetInstance()->current_test_info()->name());
-        mkdir(persisterDir_.c_str(), S_IRWXU);
         FLAGS_log_dir = fmt::format("{}/raft", persisterDir_);
-        mkdir(FLAGS_log_dir.c_str(), S_IRWXU);
+        if (mkdir(persisterDir_.c_str(), S_IRWXU)) {
+            LOG(WARNING) << fmt::format("mkdir \"{}\" faild: {}", persisterDir_.c_str(), strerror(errno));
+        }
+        if (mkdir(FLAGS_log_dir.c_str(), S_IRWXU)) {
+            LOG(WARNING) << fmt::format("mkdir \"{}\" faild: {}", FLAGS_log_dir, strerror(errno));
+        }
         google::InitGoogleLogging(FLAGS_log_dir.c_str());
     }
 
@@ -36,12 +40,14 @@ protected:
     std::vector<Host> emptyPeers_;
 };
 
-TEST_F(RaftUnitTest, RaftExitTest) {
+TEST_F(RaftUnitTest, RaftExitTest)
+{
     RaftHandler raft_(emptyPeers_, me_, persisterDir_, &sm_);
     std::this_thread::sleep_for(MAX_ELECTION_TIMEOUT);
 }
 
-TEST_F(RaftUnitTest, RaftFollowerTest) {
+TEST_F(RaftUnitTest, RaftFollowerTest)
+{
     RaftHandler raft_(emptyPeers_, me_, persisterDir_, &sm_);
 
     // Send a heartbeat packet to put raft into follower state
@@ -54,7 +60,7 @@ TEST_F(RaftUnitTest, RaftFollowerTest) {
     raft_.appendEntries(ret, params);
     ASSERT_TRUE(ret.success);
     ASSERT_EQ(ret.term, 0);
-    
+
     RaftState rst;
     raft_.getState(rst);
     ASSERT_EQ(rst.state, ServerState::FOLLOWER);

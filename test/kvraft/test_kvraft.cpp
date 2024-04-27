@@ -41,7 +41,9 @@ protected:
     void SetUp() override
     {
         logDir_ = fmt::format("../../logs/{}", testing::UnitTest::GetInstance()->current_test_info()->name());
-        mkdir(logDir_.c_str(), S_IRWXU);
+        if (mkdir(logDir_.c_str(), S_IRWXU)) {
+            LOG(WARNING) << fmt::format("mkdir \"{}\" faild: {}", logDir_, strerror(errno));
+        }
         ports_ = { 7001, 7002, 7003, 7004, 7005, 7006, 7007, 7008 };
         cm_ = ClientManager<RaftClient>(ports_.size(), RPC_TIMEOUT);
         GlobalOutput.setOutputFunction(outputErrmsg);
@@ -66,7 +68,9 @@ protected:
             peers.erase(peers.begin() + i);
             string dirName = fmt::format("{}/kvraft{}", logDir_, i + 1);
             kvrafts_.emplace_back(peers, me, i + 1, dirName);
-            mkdir(dirName.c_str(), S_IRWXU);
+            if (mkdir(dirName.c_str(), S_IRWXU)) {
+                LOG(WARNING) << fmt::format("mkdir \"{}\" faild: {}", dirName, strerror(errno));
+            }
         }
 
         for (uint i = 0; i < num; i++) {

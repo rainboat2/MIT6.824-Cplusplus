@@ -34,8 +34,12 @@ protected:
         ports_ = { 7001, 7002, 7003, 7004, 7005, 7006, 7007, 7008 };
         logDir_ = fmt::format("../../logs/{}", testing::UnitTest::GetInstance()->current_test_info()->name());
         testLogDir_ = fmt::format("{}/test_shardkv", logDir_);
-        mkdir(logDir_.c_str(), S_IRWXU);
-        mkdir(testLogDir_.c_str(), S_IRWXU);
+        if (mkdir(logDir_.c_str(), S_IRWXU)) {
+            LOG(WARNING) << fmt::format("mkdir \"{}\" faild: {}", logDir_, strerror(errno));
+        }
+        if (mkdir(testLogDir_.c_str(), S_IRWXU)) {
+            LOG(WARNING) << fmt::format("mkdir \"{}\" faild: {}", testLogDir_, strerror(errno));
+        }
 
         FLAGS_log_dir = testLogDir_;
         google::InitGoogleLogging(testLogDir_.c_str());
@@ -59,7 +63,9 @@ protected:
             Host me;
             peers.erase(peers.begin() + i);
             string dirName = fmt::format("{}/ShardCtrler{}", logDir_, i + 1);
-            mkdir(dirName.c_str(), S_IRWXU);
+            if (mkdir(dirName.c_str(), S_IRWXU)) {
+                LOG(WARNING) << fmt::format("mkdir \"{}\" faild: {}", dirName, strerror(errno));
+            }
 
             using TProcessPtr = std::shared_ptr<apache::thrift::TProcessor>;
             ctrs_.emplace_back(me, dirName, [peers, me, dirName, this]() -> TProcessPtr {
@@ -153,6 +159,9 @@ protected:
         ports_ = { 7001, 7002, 7003, 7004, 7005, 7006, 7007, 7008 };
         logDir_ = fmt::format("../../logs/{}", testing::UnitTest::GetInstance()->current_test_info()->name());
         mkdir(logDir_.c_str(), S_IRWXU);
+        if (mkdir(logDir_.c_str(), S_IRWXU)) {
+            LOG(WARNING) << fmt::format("mkdir \"{}\" faild: {}", logDir_, strerror(errno));
+        }
 
         FLAGS_log_dir = logDir_;
         google::InitGoogleLogging(FLAGS_log_dir.c_str());
@@ -196,7 +205,9 @@ private:
             Host me;
             peers.erase(peers.begin() + i);
             string dirName = fmt::format("{}/ShardCtrler{}", logDir_, i + 1);
-            mkdir(dirName.c_str(), S_IRWXU);
+            if (mkdir(dirName.c_str(), S_IRWXU)) {
+                LOG(WARNING) << fmt::format("mkdir \"{}\" faild: {}", dirName, strerror(errno));
+            }
 
             using TProcessPtr = std::shared_ptr<apache::thrift::TProcessor>;
             ctrls_.emplace_back(me, dirName, [peers, me, dirName, this]() -> TProcessPtr {

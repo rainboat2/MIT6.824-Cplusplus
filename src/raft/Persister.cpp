@@ -252,8 +252,10 @@ std::vector<std::string> Persister::filesIn(std::string& dir)
     DIR* dirp = opendir(dir.c_str());
     if (dirp == nullptr) {
         if (errno == ENOENT) {
-            mkdir(dir.c_str(), S_IRWXU);
             LOG(INFO) << fmt::format("Open {} failed: {}, create it!", dir, strerror(errno));
+            if (mkdir(dir.c_str(), S_IRWXU)) {
+                LOG(FATAL) << fmt::format("mkdir \"{}\" faild: {}", dir, strerror(errno));
+            }
         } else {
             LOG(FATAL) << fmt::format("Open {} failed: {}", dir, strerror(errno));
         }
