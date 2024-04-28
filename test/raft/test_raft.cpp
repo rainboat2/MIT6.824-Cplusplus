@@ -39,10 +39,10 @@ protected:
     {
         logDir_ = fmt::format("../../logs/{}", testing::UnitTest::GetInstance()->current_test_info()->name());
         testLogDir_ = fmt::format("{}/test_raft", logDir_);
-        if (mkdir(logDir_.c_str(), S_IRWXU)) {
+        if (mkdir(logDir_.c_str(), S_IRWXU) && errno != EEXIST) {
             LOG(WARNING) << fmt::format("mkdir \"{}\" faild: {}", logDir_, strerror(errno));
         }
-        if (mkdir(testLogDir_.c_str(), S_IRWXU)) {
+        if (mkdir(testLogDir_.c_str(), S_IRWXU) && errno != EEXIST) {
             LOG(WARNING) << fmt::format("mkdir \"{}\" faild: {}", testLogDir_, strerror(errno));
         }
 
@@ -76,10 +76,10 @@ protected:
             peers.erase(peers.begin() + i);
             string dirName = fmt::format("{}/raft{}", logDir_, i + 1);
             rafts_.emplace_back(peers, me, i + 1, dirName);
-            if (mkdir(dirName.c_str(), S_IRWXU)) {
+            if (mkdir(dirName.c_str(), S_IRWXU) && errno != EEXIST) {
                 LOG(WARNING) << fmt::format("mkdir \"{}\" faild: {}", dirName, strerror(errno));
             }
-        }
+        } 
 
         for (uint i = 0; i < num; i++) {
             rafts_[i].start();
@@ -530,9 +530,6 @@ TEST_F(RaftTest, TestBackup2B)
 
 TEST_F(RaftTest, TestPersistIndependently2C)
 {
-    google::InitGoogleLogging("TestPersistIndependently2C");
-    FLAGS_log_dir = logDir_;
-
     string longPrefix;
     for (uint i = 0; i < 1024 * 128; i++) {
         longPrefix += ('a' + (i - 'a') % 26);
@@ -576,7 +573,6 @@ TEST_F(RaftTest, TestPersistIndependently2C)
             EXPECT_EQ(plogs[i], logs[i]);
         }
     }
-    google::ShutdownGoogleLogging();
 }
 
 TEST_F(RaftTest, TestPersist2C)

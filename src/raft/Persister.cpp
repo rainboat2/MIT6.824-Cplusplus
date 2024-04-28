@@ -57,7 +57,9 @@ void Persister::saveTermAndVote(TermId term, Host& voteFor)
     std::string tmp = metaFilePath_ + ".tmp";
     std::ofstream ofs(tmp, std::ios::trunc);
     ofs << md_;
-    rename(tmp.c_str(), metaFilePath_.c_str());
+    if (rename(tmp.c_str(), metaFilePath_.c_str())) {
+        LOG(FATAL) << fmt::format("rename file{} failed: {}", tmp, strerror(errno));
+    }
 }
 
 void Persister::saveLogs(LogId commitIndex, std::deque<LogEntry>& logs)

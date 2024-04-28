@@ -41,7 +41,7 @@ protected:
     void SetUp() override
     {
         logDir_ = fmt::format("../../logs/{}", testing::UnitTest::GetInstance()->current_test_info()->name());
-        if (mkdir(logDir_.c_str(), S_IRWXU)) {
+        if (mkdir(logDir_.c_str(), S_IRWXU) && errno != EEXIST) {
             LOG(WARNING) << fmt::format("mkdir \"{}\" faild: {}", logDir_, strerror(errno));
         }
         ports_ = { 7001, 7002, 7003, 7004, 7005, 7006, 7007, 7008 };
@@ -68,7 +68,7 @@ protected:
             peers.erase(peers.begin() + i);
             string dirName = fmt::format("{}/kvraft{}", logDir_, i + 1);
             kvrafts_.emplace_back(peers, me, i + 1, dirName);
-            if (mkdir(dirName.c_str(), S_IRWXU)) {
+            if (mkdir(dirName.c_str(), S_IRWXU) && errno != EEXIST) {
                 LOG(WARNING) << fmt::format("mkdir \"{}\" faild: {}", dirName, strerror(errno));
             }
         }
@@ -160,21 +160,21 @@ TEST_F(KVRaftTest, TestBasic3A)
     PutAppendReply put_r;
     clerk.putAppend(put_r, put_p);
 
-    EXPECT_EQ(put_r.status, ErrorCode::SUCCEED);
+    EXPECT_EQ(put_r.code, ErrorCode::SUCCEED);
 
     GetParams get_p;
     get_p.key = put_p.key;
     GetReply get_r;
     clerk.get(get_r, get_p);
-    EXPECT_EQ(get_r.status, ErrorCode::SUCCEED);
+    EXPECT_EQ(get_r.code, ErrorCode::SUCCEED);
     EXPECT_EQ(get_r.value, get_r.value);
 
     put_p.value = "2";
     clerk.putAppend(put_r, put_p);
-    EXPECT_EQ(put_r.status, ErrorCode::SUCCEED);
+    EXPECT_EQ(put_r.code, ErrorCode::SUCCEED);
 
     clerk.get(get_r, get_p);
-    EXPECT_EQ(get_r.status, ErrorCode::SUCCEED);
+    EXPECT_EQ(get_r.code, ErrorCode::SUCCEED);
     EXPECT_EQ(get_r.value, get_r.value);
 }
 
@@ -193,7 +193,7 @@ TEST_F(KVRaftTest, TestSpeed3A)
         put_p.key = "key" + std::to_string(i);
         put_p.value = "val" + std::to_string(i);
         clerk.putAppend(put_r, put_p);
-        EXPECT_EQ(put_r.status, ErrorCode::SUCCEED);
+        EXPECT_EQ(put_r.code, ErrorCode::SUCCEED);
     }
     auto ms_per_cmd = t.duration() / CMD_NUM;
     EXPECT_LT(ms_per_cmd, HEART_BEATS_INTERVAL / 3);
@@ -218,7 +218,7 @@ TEST_F(KVRaftTest, TestConcurrent3A)
                 put_p.key = prefix + std::to_string(j);
                 put_p.value = prefix + std::to_string(j);
                 clerk.putAppend(put_r, put_p);
-                EXPECT_EQ(put_r.status, ErrorCode::SUCCEED);
+                EXPECT_EQ(put_r.code, ErrorCode::SUCCEED);
             }
 
             GetParams get_p;
@@ -226,7 +226,7 @@ TEST_F(KVRaftTest, TestConcurrent3A)
             for (int j = 0; j < 100; j++) {
                 get_p.key = prefix + std::to_string(j);
                 clerk.get(get_r, get_p);
-                EXPECT_EQ(get_r.status, ErrorCode::SUCCEED);
+                EXPECT_EQ(get_r.code, ErrorCode::SUCCEED);
                 EXPECT_EQ(get_r.value, prefix + std::to_string(j));
             }
         });
@@ -250,7 +250,7 @@ TEST_F(KVRaftTest, TestUnreliable3A)
         put_p.key = prefix + std::to_string(i);
         put_p.value = prefix + std::to_string(i);
         clerk.putAppend(put_r, put_p);
-        EXPECT_EQ(put_r.status, ErrorCode::SUCCEED);
+        EXPECT_EQ(put_r.code, ErrorCode::SUCCEED);
     }
 
     int leader = checkOneLeader();
@@ -264,7 +264,7 @@ TEST_F(KVRaftTest, TestUnreliable3A)
     for (uint i = 0; i < 10; i++) {
         get_p.key = prefix + std::to_string(i);
         clerk.get(get_r, get_p);
-        EXPECT_EQ(get_r.status, ErrorCode::SUCCEED);
+        EXPECT_EQ(get_r.code, ErrorCode::SUCCEED);
         EXPECT_EQ(get_r.value, prefix + std::to_string(i));
     }
 
@@ -274,7 +274,7 @@ TEST_F(KVRaftTest, TestUnreliable3A)
     put_p.key = prefix + "x";
     put_p.value = prefix + "y";
     clerk.putAppend(put_r, put_p);
-    EXPECT_EQ(put_r.status, ErrorCode::ERR_WRONG_LEADER);
+    EXPECT_EQ(put_r.code, ErrorCode::ERR_WRONG_LEADER);
 }
 
 TEST_F(KVRaftTest, TestSnapshotBasic3B)
@@ -290,7 +290,7 @@ TEST_F(KVRaftTest, TestSnapshotBasic3B)
         put_p.key = prefix + std::to_string(i);
         put_p.value = prefix + std::to_string(i);
         clerk.putAppend(put_r, put_p);
-        EXPECT_EQ(put_r.status, ErrorCode::SUCCEED);
+        EXPECT_EQ(put_r.code, ErrorCode::SUCCEED);
     }
 
     for (uint i = 0; i < KV_NUM; i++) {

@@ -34,10 +34,10 @@ protected:
         ports_ = { 7001, 7002, 7003, 7004, 7005, 7006, 7007, 7008 };
         logDir_ = fmt::format("../../logs/{}", testing::UnitTest::GetInstance()->current_test_info()->name());
         testLogDir_ = fmt::format("{}/test_shardkv", logDir_);
-        if (mkdir(logDir_.c_str(), S_IRWXU)) {
+        if (mkdir(logDir_.c_str(), S_IRWXU) && errno != EEXIST) {
             LOG(WARNING) << fmt::format("mkdir \"{}\" faild: {}", logDir_, strerror(errno));
         }
-        if (mkdir(testLogDir_.c_str(), S_IRWXU)) {
+        if (mkdir(testLogDir_.c_str(), S_IRWXU)&& errno != EEXIST) {
             LOG(WARNING) << fmt::format("mkdir \"{}\" faild: {}", testLogDir_, strerror(errno));
         }
 
@@ -63,7 +63,7 @@ protected:
             Host me;
             peers.erase(peers.begin() + i);
             string dirName = fmt::format("{}/ShardCtrler{}", logDir_, i + 1);
-            if (mkdir(dirName.c_str(), S_IRWXU)) {
+            if (mkdir(dirName.c_str(), S_IRWXU) && errno != EEXIST) {
                 LOG(WARNING) << fmt::format("mkdir \"{}\" faild: {}", dirName, strerror(errno));
             }
 
@@ -158,8 +158,7 @@ protected:
     {
         ports_ = { 7001, 7002, 7003, 7004, 7005, 7006, 7007, 7008 };
         logDir_ = fmt::format("../../logs/{}", testing::UnitTest::GetInstance()->current_test_info()->name());
-        mkdir(logDir_.c_str(), S_IRWXU);
-        if (mkdir(logDir_.c_str(), S_IRWXU)) {
+        if (mkdir(logDir_.c_str(), S_IRWXU) && errno != EEXIST) {
             LOG(WARNING) << fmt::format("mkdir \"{}\" faild: {}", logDir_, strerror(errno));
         }
 
@@ -205,7 +204,7 @@ private:
             Host me;
             peers.erase(peers.begin() + i);
             string dirName = fmt::format("{}/ShardCtrler{}", logDir_, i + 1);
-            if (mkdir(dirName.c_str(), S_IRWXU)) {
+            if (mkdir(dirName.c_str(), S_IRWXU) && errno != EEXIST) {
                 LOG(WARNING) << fmt::format("mkdir \"{}\" faild: {}", dirName, strerror(errno));
             }
 

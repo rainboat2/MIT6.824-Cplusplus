@@ -19,10 +19,10 @@ class RaftUnitTest : public testing::Test {
         me_.port = 7001;
         persisterDir_ = fmt::format("../../logs/{}", testing::UnitTest::GetInstance()->current_test_info()->name());
         FLAGS_log_dir = fmt::format("{}/raft", persisterDir_);
-        if (mkdir(persisterDir_.c_str(), S_IRWXU)) {
+        if (mkdir(persisterDir_.c_str(), S_IRWXU) && errno != EEXIST) {
             LOG(WARNING) << fmt::format("mkdir \"{}\" faild: {}", persisterDir_.c_str(), strerror(errno));
         }
-        if (mkdir(FLAGS_log_dir.c_str(), S_IRWXU)) {
+        if (mkdir(FLAGS_log_dir.c_str(), S_IRWXU) && errno != EEXIST) {
             LOG(WARNING) << fmt::format("mkdir \"{}\" faild: {}", FLAGS_log_dir, strerror(errno));
         }
         google::InitGoogleLogging(FLAGS_log_dir.c_str());
